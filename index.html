@@ -159,6 +159,33 @@ function openDiaryArchive(){
   if(old)old.remove();
   document.body.insertAdjacentHTML("beforeend",h);
 }
+function openVisArchive(){
+  var entries=D.vis||[];
+  if(!entries.length){alert(L==="ru"?"Пока нет записей":"No entries yet");return}
+  var h='<div class="fo open" id="visArchOv"><div class="fh"><button class="fc" onclick="X(\'visArchOv\')">'+(L==="ru"?"Закрыть":"Close")+'</button><span class="ftl">✨ '+(L==="ru"?"Архив визуализации":"Visualization archive")+'</span><span></span></div><div class="fb">';
+  entries.forEach(function(e){
+    var dt=new Date(e.date).toLocaleDateString(L==="ru"?"ru":"en",{day:"numeric",month:"long",year:"numeric"});
+    var mood=MOODS[e.mood]||"";
+    h+='<div class="cd" style="margin:0 0 10px"><div class="ci"><div style="font-size:12px;color:var(--hn);margin-bottom:6px">'+dt+(mood?' · '+mood:'')+'</div><div style="font-size:14px;line-height:1.55;white-space:pre-wrap">'+esc(e.text)+'</div></div></div>';
+  });
+  h+='</div></div>';
+  var old2=document.getElementById("visArchOv");
+  if(old2)old2.remove();
+  document.body.insertAdjacentHTML("beforeend",h);
+}
+function openGratArchive(){
+  var entries=D.grat||[];
+  if(!entries.length){alert(L==="ru"?"Пока нет записей":"No entries yet");return}
+  var h='<div class="fo open" id="gratArchOv"><div class="fh"><button class="fc" onclick="X(\'gratArchOv\')">'+(L==="ru"?"Закрыть":"Close")+'</button><span class="ftl">🙏 '+(L==="ru"?"Архив благодарностей":"Gratitude archive")+'</span><span></span></div><div class="fb">';
+  entries.forEach(function(e){
+    var dt=new Date(e.date).toLocaleDateString(L==="ru"?"ru":"en",{day:"numeric",month:"long",year:"numeric"});
+    h+='<div class="cd" style="margin:0 0 10px"><div class="ci"><div style="font-size:12px;color:var(--hn);margin-bottom:6px">'+dt+'</div><div style="font-size:14px;line-height:1.55;white-space:pre-wrap">'+esc(e.text)+'</div></div></div>';
+  });
+  h+='</div></div>';
+  var old3=document.getElementById("gratArchOv");
+  if(old3)old3.remove();
+  document.body.insertAdjacentHTML("beforeend",h);
+}
 function saveW(type){var tid="w"+type+"T";var t=document.getElementById(tid).value.trim();if(!t)return;var e={id:Date.now(),text:t,date:td()};if(type==="vision"){e.mood=visMV;D.vis.unshift(e)}else if(type==="diary"){e.mood=diaryMV;D.diary.unshift(e)}else D.grat.unshift(e);save();document.getElementById(tid).value="";X("wf-"+type);hap();render()}
 function doCI(){if(!D.checkins)D.checkins=[];if(D.checkins.indexOf(td())<0){D.checkins.push(td());save();hap("medium");render()}}
 function buyPack(n){D.extraGoals=(D.extraGoals||0)+n;save();X("packOv");hap();render()}
@@ -198,7 +225,9 @@ h+='<div class="pg" id="p-goals"><div class="ph"><div class="pt">'+(L==="ru"?"Ц
 // WRITE
 h+='<div class="pg" id="p-write"><div class="ph"><div class="pt">'+(L==="ru"?"Записать":"Write")+'</div></div>';
 [["vision","✨"],["diary","📝"],["gratitude","🙏"]].forEach(function(w){var lbl=L==="ru"?(w[0]==="vision"?"Визуализация":w[0]==="diary"?"Дневник":"Благодарность"):(w[0]==="vision"?"Visualization":w[0]==="diary"?"Diary":"Gratitude");h+='<div class="cd" style="cursor:pointer" onclick="openW(\''+w[0]+'\')"><div class="ci" style="display:flex;align-items:center;gap:14px"><span style="font-size:28px">'+w[1]+'</span><div style="font-size:15px;font-weight:600">'+lbl+'</div></div></div>'});
+h+='<div style="padding:0 16px;margin-top:4px"><button class="btg" onclick="openVisArchive()">'+(L==="ru"?"✨ Архив визуализации":"✨ Visualization archive")+'</button></div>';
 h+='<div style="padding:0 16px;margin-top:4px"><button class="btg" onclick="openDiaryArchive()">'+(L==="ru"?"📖 Архив дневника":"📖 Diary archive")+'</button></div>';
+h+='<div style="padding:0 16px;margin-top:4px"><button class="btg" onclick="openGratArchive()">'+(L==="ru"?"🙏 Архив благодарностей":"🙏 Gratitude archive")+'</button></div>';
 h+='<div id="lkW"></div></div>';
 
 // CHALLENGE

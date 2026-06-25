@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>IAM</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:var(--tg-theme-bg-color,#fff);--tx:var(--tg-theme-text-color,#000);--hn:var(--tg-theme-hint-color,#999);--lk:var(--tg-theme-link-color,#2481cc);--bt:var(--tg-theme-button-color,#2481cc);--btx:var(--tg-theme-button-text-color,#fff);--sc:var(--tg-theme-secondary-bg-color,#f0f0f0);--dv:rgba(0,0,0,.06);--gd:#d97706;--gb:rgba(245,158,11,.08)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}body{font-family:-apple-system,sans-serif;background:var(--sc);color:var(--tx);min-height:100vh;padding-bottom:72px}button{font-family:inherit;cursor:pointer}
@@ -51,6 +54,14 @@
 <div id="root"></div>
 <script>
 var TG=null,uName="";try{TG=Telegram.WebApp;TG.ready();TG.expand();uName=TG.initDataUnsafe.user.first_name||""}catch(e){}
+var SB_URL="https://dyyrtxeqgdynsdekjany.supabase.co";
+var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5eXJ0eGVxZ2R5bnNkZWtqYW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODA1ODksImV4cCI6MjA5Nzc1NjU4OX0.8-Nxop8PUtP5Ez_bhaA7FI5FBycv5u2_euEbwrH9Dvo";
+var sbCl=null;try{sbCl=supabase.createClient(SB_URL,SB_KEY)}catch(e){}
+var TG_UID=null;try{TG_UID=TG.initDataUnsafe.user.id}catch(e){}
+var SB_URL="https://dyyrtxeqgdynsdekjany.supabase.co";
+var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5eXJ0eGVxZ2R5bnNkZWtqYW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODA1ODksImV4cCI6MjA5Nzc1NjU4OX0.8-Nxop8PUtP5Ez_bhaA7FI5FBycv5u2_euEbwrH9Dvo";
+var sbCl=null;try{sbCl=supabase.createClient(SB_URL,SB_KEY)}catch(e){}
+var TG_UID=null;try{TG_UID=TG.initDataUnsafe.user.id}catch(e){}
 function hap(t){try{TG.HapticFeedback.impactOccurred(t||"light")}catch(e){}}
 var L="ru";try{if(TG&&TG.initDataUnsafe.user.language_code&&!TG.initDataUnsafe.user.language_code.startsWith("ru"))L="en"}catch(e){}
 
@@ -93,7 +104,7 @@ function missed(){if(!D.checkins||!D.checkins.length)return 0;return Math.max(0,
 function calcLvl(){var lv="DREAMER";if(D.quickLvl&&D.quickExp&&new Date(D.quickExp)>new Date()){var qi=LEVELS.indexOf(D.quickLvl);var ei=LEVELS.indexOf(lv);if(qi>ei)lv=D.quickLvl}for(var i=1;i<LEVELS.length;i++){var req=LVL_REQ[LEVELS[i]];if(!req)continue;var ok=true;if((D.checkins||[]).length<req.ci)ok=false;if(te()<req.en)ok=false;if(maxStr()<req.ms)ok=false;if(req.ch&&(D.chDay||0)<21)ok=false;if((D.shares||0)<req.sh)ok=false;if((D.actInv||0)<req.inv)ok=false;if((D.eggsFound||[]).length<req.eg)ok=false;if(ok&&LEVELS.indexOf(LEVELS[i])>LEVELS.indexOf(lv))lv=LEVELS[i]}return lv}
 function lim(){return LVL_LIM[calcLvl()]||LVL_LIM.DREAMER}
 function load(){try{var r=localStorage.getItem("iam3");if(r)return JSON.parse(r)}catch(e){}return{goals:[],vis:[],diary:[],grat:[],checkins:[],chDay:0,chRound:1,hasPair:false,extraGoals:0,onboarded:false,shares:0,actInv:0,eggsFound:[],fragments:{},wisdomDone:{},ritualDone:{},frzUsed:0,quickLvl:null,quickExp:null,lang:L}}
-function save(){try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}
+function save(){try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}if(sbCl&&TG_UID){sbCl.from("user_data").upsert({user_id:TG_UID,data:D,updated_at:new Date().toISOString()},{onConflict:"user_id"}).then(function(){}).catch(function(){})}}
 function X(id){document.getElementById(id).classList.remove("open")}
 
 var D=load();if(D.lang)L=D.lang;
@@ -331,7 +342,7 @@ document.getElementById("lkS").innerHTML=lsH;
 }
 
 // ====== INIT ======
-if(!D.onboarded)showOnb();else build();
+(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}if(!D.onboarded)showOnb();else build();})();})();})();
 </script>
 </body>
 </html>

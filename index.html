@@ -110,6 +110,7 @@ function X(id){document.getElementById(id).classList.remove("open")}
 
 var D=load();if(D.lang)L=D.lang;
 var fCat="wealth",fHz="year",visMV=4,diaryMV=3;
+var remindGoalId=null,remindFreq="daily";
 
 function setLang(l){L=l;D.lang=l;save();location.reload()}
 
@@ -208,6 +209,40 @@ function buyFreeze(){var m=missed();for(var i=1;i<=m;i++){var d=new Date(Date.no
 function skipFreeze(){X("frzOv")}
 function createPair(){D.hasPair=true;save();render()}
 function showDonate(){document.getElementById("donateOv").classList.add("open")}
+function openRemindSheet(id){
+  var g=D.goals.find(function(x){return x.id===id});
+  if(!g)return;
+  remindGoalId=id;
+  remindFreq="daily";
+  var el=document.getElementById("remindGoalTxt");
+  if(el)el.textContent=g.text.slice(0,70)+(g.text.length>70?"…":"");
+  var ti=document.getElementById("remindTime");
+  if(ti)ti.value="09:00";
+  var fr=document.getElementById("remindFreqR");
+  if(fr){
+    fr.innerHTML="";
+    var freqs=[["daily",L==="ru"?"📅 Ежедневно":"📅 Daily"],["1h","⏰ "+(L==="ru"?"Каждый час":"Every hour")],["2h","⏰ "+(L==="ru"?"2 часа":"2 hours")],["4h","⏰ "+(L==="ru"?"4 часа":"4 hours")],["6h","⏰ "+(L==="ru"?"6 часов":"6 hours")],["12h","⏰ "+(L==="ru"?"12 часов":"12 hours")]];
+    freqs.forEach(function(f){
+      var b=document.createElement("button");
+      b.className="cc"+(f[0]===remindFreq?" a":"");
+      b.textContent=f[1];
+      b.onclick=function(){remindFreq=f[0];fr.querySelectorAll(".cc").forEach(function(x){x.classList.remove("a")});b.classList.add("a")};
+      fr.appendChild(b);
+    });
+  }
+  document.getElementById("remindSh").classList.add("open");
+  hap();
+}
+function saveRemind(){
+  var ti=document.getElementById("remindTime");
+  if(!ti||!ti.value){alert(L==="ru"?"Выбери время":"Choose time");return}
+  var g=D.goals.find(function(x){return x.id===remindGoalId});
+  if(!g)return;
+  var payload=JSON.stringify({action:"remind",goal_text:g.text,remind_time:ti.value,frequency:remindFreq});
+  X("remindSh");
+  hap("medium");
+  try{TG.sendData(payload)}catch(e){alert(L==="ru"?"Открой в Telegram для сохранения":"Open in Telegram to save")}
+}
 
 // ====== BUILD ======
 function build(){
@@ -272,6 +307,9 @@ h+='</div></div>';
 h+='<div class="po" id="donateOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="text-align:center"><div style="font-size:48px;margin-bottom:16px">💝</div><div style="font-size:22px;font-weight:700;margin-bottom:8px">'+(L==="ru"?"Поддержать проект":"Support project")+'</div><div style="font-size:14px;color:var(--hn);margin-bottom:16px">'+(L==="ru"?"Любая сумма помогает развивать IAM":"Any amount helps develop IAM")+'</div><div style="margin-bottom:12px"><input class="egg-in" id="donateAmt" type="number" placeholder="'+(L==="ru"?"Количество Stars":"Stars amount")+'" style="text-align:center;font-size:18px"></div>';
 [50,150,500].forEach(function(a){h+='<button class="btg" style="margin-bottom:8px" onclick="document.getElementById(\'donateAmt\').value='+a+'">⭐ '+a+'</button>'});
 h+='<button class="btn" style="margin-top:8px" onclick="alert(\'Telegram Stars coming soon!\');X(\'donateOv\')">'+(L==="ru"?"Отправить":"Send")+'</button><button class="btg" onclick="X(\'donateOv\')" style="margin-top:8px">'+(L==="ru"?"Закрыть":"Close")+'</button></div></div></div>';
+
+// REMIND SHEET
+h+='<div class="po" id="remindSh" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:8px">🔔 '+(L==="ru"?"Напоминание о цели":"Goal reminder")+'</div><div id="remindGoalTxt" style="font-size:13px;color:var(--hn);text-align:center;margin-bottom:16px;line-height:1.4"></div><div style="margin-bottom:16px"><label class="fl">'+(L==="ru"?"Время":"Time")+'</label><input type="time" id="remindTime" class="fi" value="09:00" style="font-size:20px"></div><div style="margin-bottom:20px"><label class="fl">'+(L==="ru"?"Частота":"Frequency")+'</label><div class="cr" id="remindFreqR"></div></div><button class="btn" onclick="saveRemind()">'+(L==="ru"?"Сохранить 🔔":"Save 🔔")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'remindSh\')">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
 
 // FREEZE
 h+='<div class="fz" id="frzOv"><div class="fzc"><div style="font-size:48px;margin-bottom:16px">❄️</div><div style="font-size:20px;font-weight:700;margin-bottom:4px">'+(L==="ru"?"Стрик под угрозой!":"Streak at risk!")+'</div><div id="frzInfo" style="font-size:14px;color:var(--hn);margin-bottom:20px"></div><button class="btn" id="frzBtn" onclick="buyFreeze()"></button><button class="btg" onclick="skipFreeze()" style="margin-top:12px">'+(L==="ru"?"Обнулить":"Reset")+'</button></div></div>';
@@ -353,7 +391,7 @@ var uCats=[...new Set(D.goals.map(function(g){return g.cat}))];
 document.getElementById("balBan").innerHTML=uCats.length===1&&D.goals.length>=3?'<div class="lt" style="border-color:var(--gd)"><div style="font-size:14px;font-weight:600;margin-bottom:4px">'+(L==="ru"?"⚖️ Баланс сфер":"⚖️ Balance")+'</div><div style="font-size:13px;color:var(--hn);line-height:1.45">'+(L==="ru"?"Все цели в одной сфере. Добавь в другие.":"All goals in one area. Add others.")+'</div></div>':"";
 var mx=l.gpc*5+(D.extraGoals||0);
 document.getElementById("limInfo").innerHTML='<div style="padding:0 16px 8px;display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--hn)">'+D.goals.length+"/"+mx+'</span>'+(D.goals.length>=mx*.7?'<button style="background:none;border:none;color:var(--lk);font-size:12px;font-weight:600" onclick="document.getElementById(\'packOv\').classList.add(\'open\')">'+(L==="ru"?"Докупить":"Buy more")+'</button>':'')+'<div class="lvb" style="width:120px;height:4px;margin-top:6px"><div class="lvf" style="width:'+Math.min(100,D.goals.length/mx*100)+'%;background:var(--lk)"></div></div></div>';
-document.getElementById("goalsList").innerHTML=D.goals.length?'<div class="cd">'+D.goals.map(function(g){return'<div class="it"><button class="ck'+(g.done?" d":"")+'" onclick="tglG('+g.id+')">'+(g.done?"✓":"")+'</button><div class="ib"><div class="ic">'+ci(g.cat)+" "+cn(g.cat)+(g.hz?" · "+hn(g.hz):"")+(g.deadline?dlBadge(g.deadline):"")+'</div><div class="ix'+(g.done?" d":"")+'">'+esc(g.text)+'</div></div><div style="display:flex;gap:4px"><button class="dl" style="background:var(--sc);color:var(--lk);font-size:13px" onclick="editG('+g.id+')">✏️</button><button class="dl" onclick="delG('+g.id+')">×</button></div></div>'}).join("")+"</div>":"";
+document.getElementById("goalsList").innerHTML=D.goals.length?'<div class="cd">'+D.goals.slice().sort(function(a,b){return (a.done?1:0)-(b.done?1:0)}).map(function(g){return'<div class="it"><button class="ck'+(g.done?" d":"")+'" onclick="tglG('+g.id+')">'+(g.done?"✓":"")+'</button><div class="ib"><div class="ic">'+ci(g.cat)+" "+cn(g.cat)+(g.hz?" · "+hn(g.hz):"")+(g.deadline?dlBadge(g.deadline):"")+'</div><div class="ix'+(g.done?" d":"")+'">'+esc(g.text)+'</div></div><div style="display:flex;gap:4px"><button class="dl" onclick="openRemindSheet('+g.id+')">🔔</button><button class="dl" style="background:var(--sc);color:var(--lk);font-size:13px" onclick="editG('+g.id+')">✏️</button><button class="dl" onclick="delG('+g.id+')">×</button></div></div>'}).join("")+"</div>":"";
 
 // Hidden write
 document.getElementById("lkW").innerHTML=LEVELS.indexOf(lvl)<2?'<div class="lk" onclick="alert(\''+(L==="ru"?"Повышай уровень!":"Level up!")+'\')"><div style="font-size:32px;margin-bottom:8px">🔮</div><div style="font-size:15px;font-weight:600">'+(L==="ru"?"Тут скрыто кое-что":"Something hidden here")+'</div><div style="font-size:13px;color:var(--hn)">'+(L==="ru"?"Повышай уровень":"Level up to unlock")+'</div></div>':"";

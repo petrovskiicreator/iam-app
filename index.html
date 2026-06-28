@@ -238,10 +238,21 @@ function saveRemind(){
   if(!ti||!ti.value){alert(L==="ru"?"Выбери время":"Choose time");return}
   var g=D.goals.find(function(x){return x.id===remindGoalId});
   if(!g)return;
-  var payload=JSON.stringify({action:"remind",goal_text:g.text,remind_time:ti.value,frequency:remindFreq});
+  var userId;
+  try{userId=TG.initDataUnsafe.user.id}catch(e){alert(L==="ru"?"Открой в Telegram":"Open in Telegram");return}
+  var BOT_TOKEN="8861745422:AAGyenX8OxJMAPTi5QWr36cjUVvSKam96JQ";
+  var payload=JSON.stringify({goal_text:g.text,remind_time:ti.value,frequency:remindFreq});
   X("remindSh");
   hap("medium");
-  try{TG.sendData(payload)}catch(e){alert(L==="ru"?"Открой в Telegram для сохранения":"Open in Telegram to save")}
+  fetch("https://api.telegram.org/bot"+BOT_TOKEN+"/sendMessage",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({chat_id:userId,text:"/remind_save "+payload})
+  }).then(function(){
+    try{TG.showAlert("✅ "+(L==="ru"?"Напоминание создано!":"Reminder created!"))}catch(e){alert("✅ "+(L==="ru"?"Напоминание создано!":"Reminder created!"))}
+  }).catch(function(){
+    alert(L==="ru"?"❌ Ошибка соединения":"❌ Connection error")
+  });
 }
 
 // ====== BUILD ======

@@ -240,16 +240,15 @@ function saveRemind(){
   if(!g)return;
   var userId;
   try{userId=TG.initDataUnsafe.user.id}catch(e){alert(L==="ru"?"Открой в Telegram":"Open in Telegram");return}
-  var BOT_TOKEN="8861745422:AAGyenX8OxJMAPTi5QWr36cjUVvSKam96JQ";
-  var payload=JSON.stringify({goal_text:g.text,remind_time:ti.value,frequency:remindFreq});
   X("remindSh");
   hap("medium");
-  fetch("https://api.telegram.org/bot"+BOT_TOKEN+"/sendMessage",{
+  fetch(SB_URL+"/rest/v1/reminders",{
     method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({chat_id:userId,text:"/remind_save "+payload})
-  }).then(function(){
-    try{TG.showAlert("✅ "+(L==="ru"?"Напоминание создано!":"Reminder created!"))}catch(e){alert("✅ "+(L==="ru"?"Напоминание создано!":"Reminder created!"))}
+    headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Prefer":"return=minimal"},
+    body:JSON.stringify({user_id:userId,goal_text:g.text,remind_time:ti.value,frequency:remindFreq,tz_offset:TZ_OFFSET})
+  }).then(function(r){
+    if(r.ok){try{TG.showAlert("✅ "+(L==="ru"?"Напоминание создано!":"Reminder created!"))}catch(e){alert("✅ "+(L==="ru"?"Напоминание создано!":"Reminder created!"))}}
+    else{try{TG.showAlert("❌ "+(L==="ru"?"Ошибка. Попробуй снова.":"Error. Try again."))}catch(e){alert("❌ Error")}}
   }).catch(function(){
     alert(L==="ru"?"❌ Ошибка соединения":"❌ Connection error")
   });

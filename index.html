@@ -414,10 +414,10 @@ async function sendEncouragement(toUserId,goalTitle){
 
 async function showInviteCode(code,goalTitle){
   var inviteLink='https://t.me/IAM_app_bot?start=join_'+code;
-  var inviteText='Присоединяйся к нашей совместной цели в IAM 🎯\n'+(goalTitle||'')+'\n'+inviteLink;
-  try{await navigator.share({text:inviteText})}catch(e){
-    try{await navigator.clipboard.writeText(inviteText);try{TG.showAlert('✅ Ссылка скопирована! Отправь другу вручную.')}catch(e2){alert('✅ Ссылка скопирована!')}}catch(e3){alert('Код: '+code)}
-  }
+  var inviteText='Присоединяйся к нашей совместной цели в IAM 🎯\n'+(goalTitle||'');
+  if(typeof TG!=='undefined'&&TG.shareUrl){TG.shareUrl(inviteLink,inviteText);return;}
+  if(navigator.share){try{await navigator.share({text:inviteText+'\n'+inviteLink});return;}catch(e){}}
+  try{await navigator.clipboard.writeText(inviteLink);try{TG.showAlert('✅ Ссылка скопирована! Отправь другу в Telegram')}catch(e){alert('✅ Ссылка скопирована!')}}catch(e){alert('Ссылка: '+inviteLink)}
 }
 
 async function leaveSharedGoal(goalId){

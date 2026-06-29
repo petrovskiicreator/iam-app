@@ -129,7 +129,7 @@ function onbGoal(t){if(!t.trim())return;D.goals.push({id:Date.now(),text:t.trim(
 function onbEnd(){D.onboarded=true;save();location.reload()}
 
 // ====== ACTIONS ======
-function go(id){document.querySelectorAll(".pg").forEach(function(p){p.classList.remove("a")});document.getElementById("p-"+id).classList.add("a");document.querySelectorAll(".ni").forEach(function(n,i){n.classList.remove("a")});var idx={home:0,goals:1,write:2,challenge:3,stats:4};document.querySelectorAll(".ni")[idx[id]].classList.add("a");if(id==="goals"){D.goalsRead=td();save()}render()}
+function go(id){document.querySelectorAll(".pg").forEach(function(p){p.classList.remove("a")});document.getElementById("p-"+id).classList.add("a");document.querySelectorAll(".ni").forEach(function(n,i){n.classList.remove("a")});var idx={home:0,goals:1,shared:2,write:3,challenge:4,stats:5};document.querySelectorAll(".ni")[idx[id]].classList.add("a");if(id==="goals"){D.goalsRead=td();save()}if(id==="shared")loadShared();render()}
 var editGoalId=null;
 var editParentId=null;
 function editG(id){
@@ -197,6 +197,236 @@ function shareP(){D.shares=(D.shares||0)+1;save();var s=streak(D.checkins),en=te
 function shareRef(){D.shares=(D.shares||0)+1;save();var t=L==="ru"?"Попробуй IAM — дневник целей!\nt.me/iam_diary_bot\nОба получим +5 целей 🎁":"Try IAM — goal diary!\nt.me/iam_diary_bot\nBoth get +5 goals 🎁";try{navigator.share({text:t})}catch(e){navigator.clipboard.writeText(t);alert("OK")}}
 function buyQuick(lvl){D.quickLvl=lvl;var exp=new Date();exp.setDate(exp.getDate()+30);D.quickExp=exp.toISOString().slice(0,10);save();X("storeOv");hap("heavy");render()}
 function checkFreeze(){var m=missed();if(m>0&&D.checkins&&D.checkins.length>2){var price=99+50*(m-1);var fl=lim().frz;fl=Math.max(0,fl-(D.frzUsed||0));document.getElementById("frzInfo").innerHTML=(L==="ru"?"Пропущено: <strong>"+m+"</strong> дн.":"Missed: <strong>"+m+"</strong> days");document.getElementById("frzBtn").textContent=fl>0?(L==="ru"?"Бесплатно ("+fl+" ост.)":"Free ("+fl+" left)"):(L==="ru"?"Сохранить за "+price+"₽":"Save for "+price+"₽");document.getElementById("frzOv").classList.add("open")}}
+
+// ====== SHARED GOALS ======
+var _sgId=null,_sgTmpl='friends';
+function genCode(){var c='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',r='';for(var i=0;i<8;i++)r+=c[Math.floor(Math.random()*36)];return r}
+function tmplIcon(t){return({family:'👨‍👩‍👧',couple:'👫',friends:'👥',team:'💼'})[t]||'👥'}
+function sgDaysTo(dl){if(!dl)return 999;var d=new Date(dl),n=new Date();d.setHours(0,0,0,0);n.setHours(0,0,0,0);return Math.round((d-n)/864e5)}
+function sgDlStr(dl){var d=sgDaysTo(dl);if(d<0)return L==="ru"?"Просрочено":"Overdue";if(d===0)return L==="ru"?"Сегодня!":"Today!";if(d===1)return L==="ru"?"Завтра":"Tomorrow";return dl}
+function sgSetTmpl(btn,t){_sgTmpl=t;document.querySelectorAll('#sgTmplR .cc').forEach(function(b){b.classList.remove('a')});btn.classList.add('a')}
+
+async function loadShared(){
+  var el=document.getElementById('sharedList');
+  if(!sbCl||!TG_UID){el.innerHTML='<div style="padding:32px;text-align:center;color:var(--hn)">'+(L==="ru"?"Открой через Telegram":"Open via Telegram")+'</div>';return;}
+  try{
+    var mRes=await sbCl.from('shared_members').select('goal_id').eq('user_id',TG_UID).eq('status','active');
+    var ids=(mRes.data||[]).map(function(m){return m.goal_id});
+    if(!ids.length){el.innerHTML='<div style="padding:32px;text-align:center;color:var(--hn);line-height:1.6">'+(L==="ru"?"Нет совместных целей.<br>Создай первую!":"No shared goals yet.<br>Create your first!")+'</div>';return;}
+    var gRes=await sbCl.from('shared_goals').select('*').in('id',ids);
+    var goals=gRes.data||[];
+    renderSharedList(goals);checkSharedDeadlines(goals);
+  }catch(e){el.innerHTML='<div style="padding:32px;text-align:center;color:var(--hn)">'+esc(e.message||'Ошибка')+'</div>';}
+}
+
+function renderSharedList(goals){
+  var el=document.getElementById('sharedList');
+  if(!goals.length){el.innerHTML='<div style="padding:32px;text-align:center;color:var(--hn)">'+(L==="ru"?"Нет совместных целей":"No shared goals")+'</div>';return;}
+  var h='';
+  goals.forEach(function(g){
+    var dl=sgDaysTo(g.deadline);
+    h+='<div class="cd" style="cursor:pointer;margin:0 16px 8px" onclick="openSharedDetail('+g.id+')">';
+    h+='<div class="ci" style="display:flex;justify-content:space-between;align-items:flex-start">';
+    h+='<div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600">'+esc(g.title)+'</div>';
+    if(g.deadline)h+='<div style="font-size:12px;color:'+(dl<=0?'#ef4444':dl<=7?'var(--gd)':'var(--hn)')+';margin-top:3px">📅 '+sgDlStr(g.deadline)+'</div>';
+    h+='</div><span style="font-size:28px;margin-left:8px">'+tmplIcon(g.template)+'</span>';
+    h+='</div></div>';
+  });
+  el.innerHTML=h;
+}
+
+function checkSharedDeadlines(goals){
+  var b='';
+  goals.forEach(function(g){
+    if(!g.deadline)return;
+    var dl=sgDaysTo(g.deadline);
+    if(dl===7||dl===1||dl===0){
+      var msg=dl===0?(L==="ru"?"Сегодня дедлайн: ":"Deadline today: "):dl===1?(L==="ru"?"Завтра дедлайн: ":"Deadline tomorrow: "):(L==="ru"?"Через 7 дней: ":"In 7 days: ");
+      b+='<div class="lt" style="border-color:'+(dl===0?'#ef4444':'var(--gd)')+'"><div style="font-size:13px;font-weight:600">⏰ '+msg+esc(g.title)+'</div></div>';
+    }
+  });
+  var el=document.getElementById('sharedDeadlineBanner');if(el)el.innerHTML=b;
+}
+
+function openCreateShared(){
+  _sgTmpl='friends';
+  document.getElementById('sgTitle').value='';
+  document.getElementById('sgDeadline').value='';
+  document.querySelectorAll('#sgTmplR .cc').forEach(function(b){b.classList.toggle('a',b.dataset.t==='friends')});
+  document.getElementById('createSharedOv').classList.add('open');
+}
+
+async function saveSharedGoal(){
+  var title=document.getElementById('sgTitle').value.trim();
+  if(!title){try{TG.showAlert(L==="ru"?"Введи название":"Enter title")}catch(e){alert(L==="ru"?"Введи название":"Enter title")}return;}
+  if(!TG_UID)return;
+  var code=genCode(),deadline=document.getElementById('sgDeadline').value||null;
+  var uname='';
+  try{var uRes=await sbCl.from('bot_users').select('username,first_name').eq('user_id',TG_UID).single();uname=(uRes.data&&uRes.data.username)||''}catch(e){}
+  try{
+    var ins=await sbCl.from('shared_goals').insert({title:title,cat:fCat,hz:fHz,created_by:TG_UID,invite_code:code,deadline:deadline,template:_sgTmpl}).select().single();
+    if(ins.error)throw ins.error;
+    var goalId=ins.data.id;
+    await sbCl.from('shared_members').insert({goal_id:goalId,user_id:TG_UID,username:uname,role:'creator',status:'active'});
+    await sbCl.from('shared_stats').insert({goal_id:goalId,user_id:TG_UID,tasks_created:0,tasks_done:0,encouragements_sent:0,days_active:0});
+    X('createSharedOv');showInviteCode(code);loadShared();hap('medium');
+  }catch(e){try{TG.showAlert(L==="ru"?"Ошибка создания":"Create error")}catch(e2){alert(L==="ru"?"Ошибка":"Error")};}
+}
+
+function openJoinShared(){document.getElementById('sgJoinCode').value='';document.getElementById('joinSharedOv').classList.add('open')}
+
+async function joinSharedGoal(){
+  var code=document.getElementById('sgJoinCode').value.trim().toUpperCase();
+  if(code.length!==8){try{TG.showAlert(L==="ru"?"Код — 8 символов":"Code must be 8 chars")}catch(e){alert("8 chars")};return;}
+  if(!TG_UID)return;
+  try{
+    var gRes=await sbCl.from('shared_goals').select('*').eq('invite_code',code).single();
+    if(gRes.error||!gRes.data){try{TG.showAlert(L==="ru"?"Цель не найдена":"Goal not found")}catch(e){alert("Not found")};return;}
+    var g=gRes.data;
+    var mRes=await sbCl.from('shared_members').select('id').eq('goal_id',g.id).eq('user_id',TG_UID);
+    if(mRes.data&&mRes.data.length){X('joinSharedOv');setTimeout(function(){openSharedDetail(g.id)},200);return;}
+    var uname='';
+    try{var uRes=await sbCl.from('bot_users').select('username').eq('user_id',TG_UID).single();uname=(uRes.data&&uRes.data.username)||''}catch(e){}
+    await sbCl.from('shared_members').insert({goal_id:g.id,user_id:TG_UID,username:uname,role:'member',status:'active'});
+    await sbCl.from('shared_stats').insert({goal_id:g.id,user_id:TG_UID,tasks_created:0,tasks_done:0,encouragements_sent:0,days_active:0});
+    X('joinSharedOv');hap('medium');loadShared();setTimeout(function(){openSharedDetail(g.id)},300);
+  }catch(e){try{TG.showAlert(L==="ru"?"Ошибка":"Error")}catch(e2){alert("Error")}}
+}
+
+async function openSharedDetail(goalId){
+  _sgId=goalId;
+  document.getElementById('sharedDtl').classList.add('open');
+  document.getElementById('sgDtlBody').innerHTML='<div style="padding:32px;text-align:center;color:var(--hn)">'+(L==="ru"?"Загрузка...":"Loading...")+'</div>';
+  await renderSharedDetail(goalId);
+}
+
+async function renderSharedDetail(goalId){
+  try{
+    var results=await Promise.all([
+      sbCl.from('shared_goals').select('*').eq('id',goalId).single(),
+      sbCl.from('shared_members').select('*').eq('goal_id',goalId).eq('status','active'),
+      sbCl.from('shared_tasks').select('*').eq('goal_id',goalId).order('done',{ascending:true}).order('created_at',{ascending:true}),
+      sbCl.from('shared_stats').select('*').eq('goal_id',goalId)
+    ]);
+    var g=results[0].data,members=results[1].data||[],tasks=results[2].data||[],stats=results[3].data||[];
+    if(!g){document.getElementById('sgDtlBody').innerHTML='<div style="padding:32px;text-align:center;color:#ef4444">'+(L==="ru"?"Цель не найдена":"Not found")+'</div>';return;}
+    var isCreator=g.created_by===TG_UID;
+    var doneTasks=tasks.filter(function(t){return t.done}).length;
+    var pct=tasks.length?Math.round(doneTasks/tasks.length*100):0;
+    var ranked=stats.slice().sort(function(a,b){return(b.tasks_done||0)-(a.tasks_done||0)});
+    var medals=['🥇','🥈','🥉'];
+    var memberMap={};members.forEach(function(m){memberMap[m.user_id]=m});
+    var h='<div style="padding:16px 0 8px">';
+    h+='<div style="font-size:22px;font-weight:700;margin-bottom:4px">'+esc(g.title)+'</div>';
+    if(g.deadline){var dl=sgDaysTo(g.deadline);h+='<div style="font-size:13px;color:'+(dl<=0?'#ef4444':dl<=7?'var(--gd)':'var(--hn)')+'">📅 '+sgDlStr(g.deadline)+'</div>';}
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><div class="lvb" style="flex:1;height:8px"><div class="lvf" style="width:'+pct+'%;background:var(--lk)"></div></div><span style="font-size:13px;color:var(--hn);white-space:nowrap">'+doneTasks+'/'+tasks.length+'</span></div></div>';
+    // Members
+    if(ranked.length){
+      h+='<div class="st">'+(L==="ru"?"Участники":"Members")+'</div><div class="cd" style="margin:0 0 8px">';
+      ranked.forEach(function(st,i){
+        var m=memberMap[st.user_id];if(!m)return;
+        var medal=medals[i]||'';
+        h+='<div class="it" style="padding:10px 16px"><span style="font-size:20px;width:28px;text-align:center;flex-shrink:0">'+medal+'</span>';
+        h+='<div class="ib"><div style="font-size:14px;font-weight:600">'+(m.username?'@'+m.username:'ID '+m.user_id)+(m.role==='creator'?' 👑':'')+'</div>';
+        h+='<div style="font-size:12px;color:var(--hn)">'+(st.tasks_done||0)+' '+(L==="ru"?"выполнено":"done")+'</div></div>';
+        if(st.user_id!==TG_UID){h+='<button onclick="sendEncouragement('+st.user_id+',\''+esc(g.title).replace(/'/g,"\\'")+'\')" style="background:none;border:1px solid var(--dv);border-radius:8px;padding:4px 8px;font-size:16px;cursor:pointer;flex-shrink:0">💪</button>';}
+        h+='</div>';
+      });
+      h+='</div>';
+    }
+    // Tasks
+    h+='<div class="st">'+(L==="ru"?"Задачи":"Tasks")+'</div><div class="cd" style="margin:0 0 8px">';
+    if(!tasks.length){h+='<div class="ci" style="text-align:center;color:var(--hn);font-size:14px">'+(L==="ru"?"Нет задач. Добавь первую!":"No tasks yet. Add the first one!")+'</div>';}
+    tasks.forEach(function(t){
+      var assignee=memberMap[t.assigned_to];
+      h+='<div class="it"><button class="ck'+(t.done?' d':'')+'" onclick="toggleSharedTask('+t.id+','+goalId+')">'+(t.done?'✓':'')+'</button>';
+      h+='<div class="ib"><div class="ix'+(t.done?' d':'')+'">'+esc(t.text)+'</div>';
+      if(assignee||t.deadline){h+='<div style="font-size:12px;color:var(--hn);margin-top:2px">'+(assignee?'→ '+(assignee.username?'@'+assignee.username:'?'):'')+( assignee&&t.deadline?' · ':'')+( t.deadline?sgDlStr(t.deadline):'')+'</div>';}
+      if(t.done){h+='<div style="display:flex;gap:4px;margin-top:4px">';['🔥','❤️','👏'].forEach(function(rx){h+='<button onclick="addSgReaction('+t.id+',\''+rx+'\')" style="background:none;border:1px solid var(--dv);border-radius:6px;padding:2px 6px;font-size:13px;cursor:pointer">'+rx+'</button>';});h+='</div>';}
+      h+='</div></div>';
+    });
+    h+='</div>';
+    // Action buttons
+    h+='<button class="btn" style="margin-bottom:8px" onclick="openAddSharedTask('+goalId+')">'+(L==="ru"?"➕ Добавить задачу":"➕ Add task")+'</button>';
+    h+='<button class="btg" style="margin-bottom:8px" onclick="showInviteCode(\''+g.invite_code+'\')">'+(L==="ru"?"🔗 Пригласить":"🔗 Invite")+'</button>';
+    if(isCreator){h+='<button class="btg" style="margin-bottom:8px;color:#ef4444" onclick="closeSharedGoal('+goalId+')">'+(L==="ru"?"🚫 Закрыть цель":"🚫 Close goal")+'</button>';}
+    else{h+='<button class="btg" style="margin-bottom:8px;color:#ef4444" onclick="leaveSharedGoal('+goalId+')">'+(L==="ru"?"👋 Выйти из цели":"👋 Leave goal")+'</button>';}
+    document.getElementById('sgDtlBody').innerHTML=h;
+  }catch(e){document.getElementById('sgDtlBody').innerHTML='<div style="padding:32px;text-align:center;color:var(--hn)">'+esc(String(e))+'</div>';}
+}
+
+async function toggleSharedTask(taskId,goalId){
+  try{
+    var res=await sbCl.from('shared_tasks').select('done,text').eq('id',taskId).single();
+    var newDone=!res.data.done;
+    var upd={done:newDone};if(newDone)upd.done_at=new Date().toISOString();
+    await sbCl.from('shared_tasks').update(upd).eq('id',taskId);
+    if(newDone){
+      var sRes=await sbCl.from('shared_stats').select('tasks_done').eq('goal_id',goalId).eq('user_id',TG_UID).single();
+      if(sRes.data)await sbCl.from('shared_stats').update({tasks_done:(sRes.data.tasks_done||0)+1}).eq('goal_id',goalId).eq('user_id',TG_UID);
+    }
+    hap();await renderSharedDetail(goalId);
+  }catch(e){}
+}
+
+async function addSgReaction(taskId,reaction){
+  try{await sbCl.from('shared_reactions').insert({task_id:taskId,user_id:TG_UID,reaction:reaction});hap('light');}catch(e){}
+}
+
+function openAddSharedTask(goalId){
+  document.getElementById('sgTaskTxt').value='';
+  document.getElementById('sgTaskDl').value='';
+  document.getElementById('addTaskGoalId').value=goalId;
+  var sel=document.getElementById('sgTaskAssign');
+  sel.innerHTML='<option value="">'+(L==="ru"?"Без назначения":"Unassigned")+'</option>';
+  sbCl.from('shared_members').select('user_id,username').eq('goal_id',goalId).eq('status','active').then(function(r){
+    (r.data||[]).forEach(function(m){var o=document.createElement('option');o.value=m.user_id;o.textContent=m.username?'@'+m.username:('ID '+m.user_id);sel.appendChild(o)});
+  });
+  document.getElementById('addSharedTaskOv').classList.add('open');
+}
+
+async function saveSharedTask(){
+  var text=document.getElementById('sgTaskTxt').value.trim();
+  if(!text)return;
+  var goalId=+document.getElementById('addTaskGoalId').value;
+  var assignTo=document.getElementById('sgTaskAssign').value;
+  var deadline=document.getElementById('sgTaskDl').value||null;
+  try{
+    await sbCl.from('shared_tasks').insert({goal_id:goalId,user_id:TG_UID,text:text,done:false,assigned_to:assignTo?+assignTo:null,deadline:deadline});
+    var sRes=await sbCl.from('shared_stats').select('tasks_created').eq('goal_id',goalId).eq('user_id',TG_UID).single();
+    if(sRes.data)await sbCl.from('shared_stats').update({tasks_created:(sRes.data.tasks_created||0)+1}).eq('goal_id',goalId).eq('user_id',TG_UID);
+    X('addSharedTaskOv');hap('medium');await renderSharedDetail(goalId);
+  }catch(e){try{TG.showAlert(L==="ru"?"Ошибка":"Error")}catch(e2){alert("Error")}}
+}
+
+async function sendEncouragement(toUserId,goalTitle){
+  if(!TG_UID)return;
+  var fromName=uName||'Кто-то';
+  try{
+    await fetch(SB_URL+'/rest/v1/encourage_queue',{method:'POST',headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({from_user_id:TG_UID,from_username:fromName,to_user_id:toUserId,goal_title:goalTitle,processed:false})});
+    // Update stats
+    var sRes=await sbCl.from('shared_stats').select('encouragements_sent').eq('user_id',TG_UID).single();
+    if(sRes.data)await sbCl.from('shared_stats').update({encouragements_sent:(sRes.data.encouragements_sent||0)+1}).eq('user_id',TG_UID);
+    hap('medium');
+    try{TG.showAlert(L==="ru"?"💪 Подбодрение отправлено!":"💪 Encouragement sent!")}catch(e){alert(L==="ru"?"Отправлено!":"Sent!")}
+  }catch(e){}
+}
+
+function showInviteCode(code){
+  document.getElementById('inviteCode').textContent=code;
+  document.getElementById('inviteLink').onclick=function(){try{TG.openTelegramLink('https://t.me/IAM_app_bot?start=join_'+code)}catch(e){alert('Code: '+code)}};
+  document.getElementById('inviteSharedOv').classList.add('open');
+}
+
+async function leaveSharedGoal(goalId){
+  if(!confirm(L==="ru"?"Выйти из цели?":"Leave this goal?"))return;
+  try{await sbCl.from('shared_members').update({status:'declined'}).eq('goal_id',goalId).eq('user_id',TG_UID);X('sharedDtl');hap();loadShared();}catch(e){}
+}
+
+async function closeSharedGoal(goalId){
+  if(!confirm(L==="ru"?"Закрыть цель для всех участников?":"Close this goal for all members?"))return;
+  try{await sbCl.from('shared_members').update({status:'declined'}).eq('goal_id',goalId);X('sharedDtl');hap();loadShared();}catch(e){}
+}
 function buyFreeze(){var m=missed();for(var i=1;i<=m;i++){var d=new Date(Date.now()-i*864e5).toISOString().slice(0,10);if(D.checkins.indexOf(d)<0)D.checkins.push(d)}D.frzUsed=(D.frzUsed||0)+1;save();X("frzOv");hap("medium");render()}
 function skipFreeze(){X("frzOv")}
 function createPair(){D.hasPair=true;save();render()}
@@ -311,7 +541,7 @@ function advRitBlock(){
 function build(){
 var root=document.getElementById("root");
 var h='<nav class="nav">';
-[{id:"home",i:"🏠",l:L==="ru"?"Главная":"Home"},{id:"goals",i:"🎯",l:L==="ru"?"Цели":"Goals"},{id:"write",i:"✍️",l:L==="ru"?"Записать":"Write"},{id:"challenge",i:"🔥",l:L==="ru"?"Челлендж":"Challenge"},{id:"stats",i:"📊",l:L==="ru"?"Прогресс":"Progress"}].forEach(function(n,i){h+='<button class="ni'+(i===0?" a":"")+'" onclick="go(\''+n.id+'\')"><span class="ni-i">'+n.i+'</span><span class="ni-l">'+n.l+"</span></button>"});
+[{id:"home",i:"🏠",l:L==="ru"?"Главная":"Home"},{id:"goals",i:"🎯",l:L==="ru"?"Цели":"Goals"},{id:"shared",i:"👥",l:L==="ru"?"Команда":"Team"},{id:"write",i:"✍️",l:L==="ru"?"Записать":"Write"},{id:"challenge",i:"🔥",l:L==="ru"?"Челлендж":"Challenge"},{id:"stats",i:"📊",l:L==="ru"?"Прогресс":"Progress"}].forEach(function(n,i){h+='<button class="ni'+(i===0?" a":"")+'" onclick="go(\''+n.id+'\')"><span class="ni-i">'+n.i+'</span><span class="ni-l">'+n.l+"</span></button>"});
 h+='</nav>';
 
 // HOME
@@ -319,6 +549,9 @@ h+='<div class="pg a" id="p-home"><div class="ph"><div class="pt" id="greet"></d
 
 // GOALS
 h+='<div class="pg" id="p-goals"><div class="ph"><div class="pt">'+(L==="ru"?"Цели":"Goals")+'</div><div class="pd">'+(L==="ru"?"В настоящем времени":"Present tense")+'</div></div><div id="balBan"></div><div id="limInfo"></div><div id="goalsList"></div><div style="padding:0 16px;margin-top:4px"><button class="btn" onclick="openGF()">'+(L==="ru"?"Добавить цель":"Add goal")+'</button></div><div style="padding:0 16px;margin-top:8px"><button class="btg" onclick="openTmpl()">'+(L==="ru"?"Шаблоны":"Templates")+'</button></div></div>';
+
+// SHARED GOALS
+h+='<div class="pg" id="p-shared"><div class="ph"><div class="pt">'+(L==="ru"?"👥 Команда":"👥 Team")+'</div><div class="pd">'+(L==="ru"?"Совместные цели":"Shared goals")+'</div></div><div id="sharedDeadlineBanner"></div><div id="sharedList" style="min-height:80px"><div style="padding:32px;text-align:center;color:var(--hn)">'+(L==="ru"?"Загрузка...":"Loading...")+'</div></div><div style="padding:0 16px;margin-top:4px"><button class="btn" onclick="openCreateShared()">'+(L==="ru"?"Создать совместную цель":"Create shared goal")+'</button></div><div style="padding:0 16px;margin-top:8px"><button class="btg" onclick="openJoinShared()">'+(L==="ru"?"Присоединиться по коду":"Join by code")+'</button></div></div>';
 
 // WRITE
 h+='<div class="pg" id="p-write"><div class="ph"><div class="pt">'+(L==="ru"?"Записать":"Write")+'</div></div>';
@@ -375,8 +608,27 @@ h+='<div class="po" id="remindSh" onclick="this.classList.remove(\'open\')"><div
 // FREEZE
 h+='<div class="fz" id="frzOv"><div class="fzc"><div style="font-size:48px;margin-bottom:16px">❄️</div><div style="font-size:20px;font-weight:700;margin-bottom:4px">'+(L==="ru"?"Стрик под угрозой!":"Streak at risk!")+'</div><div id="frzInfo" style="font-size:14px;color:var(--hn);margin-bottom:20px"></div><button class="btn" id="frzBtn" onclick="buyFreeze()"></button><button class="btg" onclick="skipFreeze()" style="margin-top:12px">'+(L==="ru"?"Обнулить":"Reset")+'</button></div></div>';
 
+// SHARED GOAL DETAIL (fullscreen)
+h+='<div class="fo" id="sharedDtl"><div class="fh"><button class="fc" onclick="X(\'sharedDtl\')">'+(L==="ru"?"← Назад":"← Back")+'</button><span class="ftl">'+(L==="ru"?"Совместная цель":"Shared goal")+'</span><span></span></div><div class="fb" id="sgDtlBody"></div></div>';
+
+// CREATE SHARED GOAL (fullscreen)
+h+='<div class="fo" id="createSharedOv"><div class="fh"><button class="fc" onclick="X(\'createSharedOv\')">'+(L==="ru"?"Отмена":"Cancel")+'</button><span class="ftl">'+(L==="ru"?"Новая цель":"New goal")+'</span><button class="fs" onclick="saveSharedGoal()">'+(L==="ru"?"Создать":"Create")+'</button></div><div class="fb"><div class="fsec"><label class="fl">'+(L==="ru"?"Название":"Title")+'</label><textarea class="fi" id="sgTitle" rows="3" placeholder="'+(L==="ru"?"Опишите цель...":"Describe the goal...")+'"></textarea></div><div class="fsec"><label class="fl">'+(L==="ru"?"Шаблон":"Template")+'</label><div class="cr" id="sgTmplR"><button class="cc" data-t="family" onclick="sgSetTmpl(this,\'family\')">👨‍👩‍👧 '+(L==="ru"?"Семья":"Family")+'</button><button class="cc" data-t="couple" onclick="sgSetTmpl(this,\'couple\')">👫 '+(L==="ru"?"Пара":"Couple")+'</button><button class="cc a" data-t="friends" onclick="sgSetTmpl(this,\'friends\')">👥 '+(L==="ru"?"Друзья":"Friends")+'</button><button class="cc" data-t="team" onclick="sgSetTmpl(this,\'team\')">💼 '+(L==="ru"?"Команда":"Team")+'</button></div></div><div class="fsec"><label class="fl">'+(L==="ru"?"Категория":"Category")+'</label><div class="cr" id="sgCatR"></div></div><div class="fsec"><label class="fl">'+(L==="ru"?"Горизонт":"Horizon")+'</label><div class="cr" id="sgHzR"></div></div><div class="fsec"><label class="fl">📅 '+(L==="ru"?"Дедлайн (необязательно)":"Deadline (optional)")+'</label><input type="date" id="sgDeadline" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--dv);background:var(--bg);color:var(--tx);font-size:14px;box-sizing:border-box"></div></div></div>';
+
+// JOIN SHARED GOAL (bottom sheet)
+h+='<div class="po" id="joinSharedOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="font-size:20px;font-weight:700;text-align:center;margin-bottom:16px">👥 '+(L==="ru"?"Присоединиться":"Join")+'</div><div style="font-size:14px;color:var(--hn);text-align:center;margin-bottom:16px">'+(L==="ru"?"Введи 8-значный код приглашения":"Enter the 8-character invite code")+'</div><input class="egg-in" id="sgJoinCode" maxlength="8" style="text-align:center;font-size:22px;letter-spacing:4px;font-weight:700;text-transform:uppercase" placeholder="XXXXXXXX"><button class="btn" style="margin-top:12px" onclick="joinSharedGoal()">'+(L==="ru"?"Присоединиться":"Join")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'joinSharedOv\')">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
+
+// INVITE CODE (bottom sheet)
+h+='<div class="po" id="inviteSharedOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="text-align:center"><div style="font-size:18px;font-weight:700;margin-bottom:8px">🔗 '+(L==="ru"?"Ссылка приглашения":"Invite link")+'</div><div style="font-size:13px;color:var(--hn);margin-bottom:16px">'+(L==="ru"?"Поделись кодом или ссылкой:":"Share the code or link:")+'</div><div style="font-size:32px;font-weight:800;letter-spacing:6px;color:var(--lk);margin:16px 0" id="inviteCode"></div><button class="btn" id="inviteLink">'+(L==="ru"?"Отправить в Telegram":"Send via Telegram")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'inviteSharedOv\')">'+(L==="ru"?"Закрыть":"Close")+'</button></div></div></div>';
+
+// ADD SHARED TASK (bottom sheet)
+h+='<div class="po" id="addSharedTaskOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:16px">'+(L==="ru"?"Новая задача":"New task")+'</div><input type="hidden" id="addTaskGoalId"><div style="margin-bottom:12px"><input class="egg-in" id="sgTaskTxt" placeholder="'+(L==="ru"?"Текст задачи...":"Task text...")+'"></div><div style="margin-bottom:12px"><label class="fl">'+(L==="ru"?"Назначить":"Assign to")+'</label><select id="sgTaskAssign" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--dv);background:var(--bg);color:var(--tx);font-size:14px"></select></div><div style="margin-bottom:16px"><label class="fl">📅 '+(L==="ru"?"Дедлайн (необязательно)":"Deadline (optional)")+'</label><input type="date" id="sgTaskDl" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--dv);background:var(--bg);color:var(--tx);font-size:14px;box-sizing:border-box"></div><button class="btn" onclick="saveSharedTask()">'+(L==="ru"?"Добавить":"Add")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'addSharedTaskOv\')">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
+
 h+='<div class="rit-ov hidden" id="ritBlockOv"></div>';
 root.innerHTML=h;
+
+// Build shared goal cat/hz chips
+var sgCatR=document.getElementById("sgCatR");if(sgCatR){Object.keys(CATS).forEach(function(k){var b=document.createElement("button");b.className="cc"+(k===fCat?" a":"");b.dataset.k=k;b.textContent=ci(k)+" "+cn(k);b.onclick=function(){fCat=k;sgCatR.querySelectorAll(".cc").forEach(function(x){x.classList.remove("a")});b.classList.add("a")};sgCatR.appendChild(b)})}
+var sgHzR=document.getElementById("sgHzR");if(sgHzR){HZ.forEach(function(hz){var b=document.createElement("button");b.className="cc"+(hz[0]===fHz?" a":"");b.dataset.k=hz[0];b.textContent=hz[r()];b.onclick=function(){fHz=hz[0];sgHzR.querySelectorAll(".cc").forEach(function(x){x.classList.remove("a")});b.classList.add("a")};sgHzR.appendChild(b)})}
 
 // Build mood bars & chips
 function bMB(id,moods,val,cb){var c=document.getElementById(id);if(!c)return;moods.forEach(function(m,i){var b=document.createElement("button");b.className="mbt"+(i===val?" a":"");b.textContent=m;b.onclick=function(){cb(i);c.querySelectorAll(".mbt").forEach(function(x,j){x.className="mbt"+(j===i?" a":"")})};c.appendChild(b)})}

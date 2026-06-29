@@ -269,7 +269,7 @@ async function saveSharedGoal(){
     var goalId=ins.data.id;
     await sbCl.from('shared_members').insert({goal_id:goalId,user_id:TG_UID,username:uname,role:'creator',status:'active'});
     await sbCl.from('shared_stats').insert({goal_id:goalId,user_id:TG_UID,tasks_created:0,tasks_done:0,encouragements_sent:0,days_active:0});
-    X('createSharedOv');showInviteCode(code);loadShared();hap('medium');
+    X('createSharedOv');showInviteCode(code,title);loadShared();hap('medium');
   }catch(e){try{TG.showAlert(L==="ru"?"Ошибка создания":"Create error")}catch(e2){alert(L==="ru"?"Ошибка":"Error")};}
 }
 
@@ -348,7 +348,7 @@ async function renderSharedDetail(goalId){
     h+='</div>';
     // Action buttons
     h+='<button class="btn" style="margin-bottom:8px" onclick="openAddSharedTask('+goalId+')">'+(L==="ru"?"➕ Добавить задачу":"➕ Add task")+'</button>';
-    h+='<button class="btg" style="margin-bottom:8px" onclick="showInviteCode(\''+g.invite_code+'\')">'+(L==="ru"?"🔗 Пригласить":"🔗 Invite")+'</button>';
+    h+='<button class="btg" style="margin-bottom:8px" onclick="showInviteCode(\''+g.invite_code+'\',\''+esc(g.title).replace(/'/g,"\\'")+'\')">'+(L==="ru"?"🔗 Пригласить":"🔗 Invite")+'</button>';
     if(isCreator){h+='<button class="btg" style="margin-bottom:8px;color:#ef4444" onclick="closeSharedGoal('+goalId+')">'+(L==="ru"?"🚫 Закрыть цель":"🚫 Close goal")+'</button>';}
     else{h+='<button class="btg" style="margin-bottom:8px;color:#ef4444" onclick="leaveSharedGoal('+goalId+')">'+(L==="ru"?"👋 Выйти из цели":"👋 Leave goal")+'</button>';}
     document.getElementById('sgDtlBody').innerHTML=h;
@@ -412,10 +412,10 @@ async function sendEncouragement(toUserId,goalTitle){
   }catch(e){}
 }
 
-function showInviteCode(code){
-  document.getElementById('inviteCode').textContent=code;
-  document.getElementById('inviteLink').onclick=function(){try{TG.openTelegramLink('https://t.me/IAM_app_bot?start=join_'+code)}catch(e){alert('Code: '+code)}};
-  document.getElementById('inviteSharedOv').classList.add('open');
+function showInviteCode(code,goalTitle){
+  var inviteText='Привет! Присоединяйся к нашей совместной цели в IAM 🎯\n\n'+(goalTitle||'')+'\n\nПерейди по ссылке: https://t.me/IAM_app_bot?start=join_'+code;
+  var shareUrl='https://t.me/share/url?url=https://t.me/IAM_app_bot?start=join_'+code+'&text='+encodeURIComponent(inviteText);
+  try{TG.openTelegramLink(shareUrl)}catch(e){alert('Код приглашения: '+code)}
 }
 
 async function leaveSharedGoal(goalId){

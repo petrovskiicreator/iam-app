@@ -365,21 +365,34 @@ async function renderSharedDetail(goalId){
     var ranked=stats.slice().sort(function(a,b){return(b.tasks_done||0)-(a.tasks_done||0)});
     var medals=['🥇','🥈','🥉'];
     var memberMap={};members.forEach(function(m){memberMap[m.user_id]=m});
+    var totalDone=stats.reduce(function(acc,st){return acc+(st.tasks_done||0)},0);
     var h='<div style="padding:16px 0 8px">';
     h+='<div style="font-size:22px;font-weight:700;margin-bottom:4px">'+esc(g.title)+'</div>';
     if(g.deadline){var dl=sgDaysTo(g.deadline);h+='<div style="font-size:13px;color:'+(dl<=0?'#ef4444':dl<=7?'var(--gd)':'var(--hn)')+'">📅 '+sgDlStr(g.deadline)+'</div>';}
     h+='<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><div class="lvb" style="flex:1;height:8px"><div class="lvf" style="width:'+pct+'%;background:var(--lk)"></div></div><span style="font-size:13px;color:var(--hn);white-space:nowrap">'+doneTasks+'/'+tasks.length+'</span></div></div>';
     // Members
     if(ranked.length){
+      var nM2=ranked.filter(function(st){return memberMap[st.user_id]}).length;
+      if(totalDone>0&&nM2>0){
+        var xStep2=Math.floor(280/nM2),bW2=Math.min(50,xStep2-6);
+        var chSvg='<svg viewBox="0 0 300 85" style="width:100%;height:85px">';
+        ranked.forEach(function(st2,ri){var m2=memberMap[st2.user_id];if(!m2)return;var pp=totalDone>0?(st2.tasks_done||0)/totalDone:0;var bh3=Math.max(3,Math.round(pp*55));var bx=ri*xStep2+10+Math.round((xStep2-bW2)/2);chSvg+='<rect x="'+bx+'" y="'+(62-bh3)+'" width="'+bW2+'" height="'+bh3+'" rx="3" fill="var(--lk)" opacity="'+(0.3+0.7*pp).toFixed(2)+'"/><text x="'+(bx+bW2/2)+'" y="'+Math.max(12,55-bh3)+'" text-anchor="middle" font-size="9" fill="var(--tx)" font-weight="600">'+Math.round(pp*100)+'%</text>';if(ri<3)chSvg+='<text x="'+(bx+bW2/2)+'" y="'+Math.max(14,59-bh3)+'" text-anchor="middle" font-size="11">'+(ri===0?'🥇':ri===1?'🥈':'🥉')+'</text>';chSvg+='<text x="'+(bx+bW2/2)+'" y="79" text-anchor="middle" font-size="8" fill="var(--hn)">'+(m2.username?'@'+m2.username.slice(0,7):(L==="ru"?'М'+ri:'M'+ri))+'</text>';});
+        chSvg+='</svg>';
+        h+='<div class="st">'+(L==="ru"?"Вклад участников":"Contribution")+'</div><div class="cd" style="margin:0 0 8px"><div class="ci">'+chSvg+'</div></div>';
+      }
       h+='<div class="st">'+(L==="ru"?"Участники":"Members")+'</div><div class="cd" style="margin:0 0 8px">';
       ranked.forEach(function(st,i){
         var m=memberMap[st.user_id];if(!m)return;
         var medal=medals[i]||'';
+        var pct2b=totalDone>0?Math.round((st.tasks_done||0)/totalDone*100):0;
         h+='<div class="it" style="padding:10px 16px"><span style="font-size:20px;width:28px;text-align:center;flex-shrink:0">'+medal+'</span>';
         h+='<div class="ib"><div style="font-size:14px;font-weight:600">'+(m.username?'@'+m.username:'ID '+m.user_id)+(m.role==='creator'?' 👑':'')+'</div>';
-        h+='<div style="font-size:12px;color:var(--hn)">'+(st.tasks_done||0)+' '+(L==="ru"?"выполнено":"done")+'</div></div>';
-        if(st.user_id!==TG_UID){h+='<button onclick="sendEncouragement('+st.user_id+',\''+esc(g.title).replace(/'/g,"\\'")+'\')" style="background:none;border:1px solid var(--dv);border-radius:8px;padding:4px 8px;font-size:16px;cursor:pointer;flex-shrink:0">💪</button>';}
-        h+='</div>';
+        if(m.custom_role)h+='<div style="font-size:12px;color:var(--lk);font-weight:500">'+esc(m.custom_role)+'</div>';
+        h+='<div style="font-size:12px;color:var(--hn)">'+(st.tasks_done||0)+' '+(L==="ru"?"выполнено":"done")+(totalDone>0?' · '+pct2b+'%':'')+'</div></div>';
+        h+='<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">';
+        if(st.user_id!==TG_UID)h+='<button onclick="sendEncouragement('+st.user_id+',\''+esc(g.title).replace(/'/g,"\\'")+'\')" style="background:none;border:1px solid var(--dv);border-radius:8px;padding:4px 8px;font-size:16px;cursor:pointer">💪</button>';
+        if(st.user_id===TG_UID)h+='<button onclick="openEditRole('+goalId+','+TG_UID+',decodeURIComponent(\''+encodeURIComponent(m.custom_role||'')+'\'))" style="background:none;border:1px solid var(--dv);border-radius:8px;padding:4px 8px;font-size:13px;cursor:pointer;color:var(--hn)">✏️</button>';
+        h+='</div></div>';
       });
       h+='</div>';
     }
@@ -477,6 +490,22 @@ async function leaveSharedGoal(goalId){
 async function closeSharedGoal(goalId){
   if(!confirm(L==="ru"?"Закрыть цель для всех участников?":"Close this goal for all members?"))return;
   try{await sbCl.from('shared_members').update({status:'declined'}).eq('goal_id',goalId);X('sharedDtl');hap();loadShared();}catch(e){}
+}
+function openEditRole(gId,uId,curRole){
+  var old=document.getElementById('editRoleOv');if(old)old.remove();
+  var oh='<div class="fz open" id="editRoleOv" onclick="document.getElementById(\'editRoleOv\').remove()"><div class="fzc" onclick="event.stopPropagation()">';
+  oh+='<div style="font-size:17px;font-weight:700;margin-bottom:12px">'+(L==="ru"?"Ваша роль в цели":"Your role in goal")+'</div>';
+  oh+='<input class="egg-in" id="editRoleIn" maxlength="30" placeholder="'+(L==="ru"?"Капитан, Финансист...":"Captain, Planner...")+'"><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;justify-content:center">';
+  (L==="ru"?["Капитан","Финансист","Логист","Мотиватор","Аналитик"]:["Captain","Planner","Executor","Motivator","Analyst"]).forEach(function(rn){oh+='<button class="cc" style="font-size:13px" onclick="document.getElementById(\'editRoleIn\').value=\''+rn+'\'">'+rn+'</button>';});
+  oh+='</div><button class="btn" style="margin-top:16px" onclick="saveEditRole('+gId+','+uId+')">'+(L==="ru"?"Сохранить":"Save")+'</button>';
+  oh+='<button class="btg" style="margin-top:8px" onclick="document.getElementById(\'editRoleOv\').remove()">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
+  document.body.insertAdjacentHTML('beforeend',oh);
+  var inp=document.getElementById('editRoleIn');if(inp&&curRole)inp.value=curRole;
+}
+async function saveEditRole(gId,uId){
+  var inp=document.getElementById('editRoleIn');if(!inp)return;
+  var role=inp.value.trim()||null;
+  try{await sbCl.from('shared_members').update({custom_role:role}).eq('goal_id',gId).eq('user_id',uId);var ov=document.getElementById('editRoleOv');if(ov)ov.remove();hap();await renderSharedDetail(gId);}catch(e){}
 }
 function buyFreeze(){var m=missed();for(var i=1;i<=m;i++){var d=new Date(Date.now()-i*864e5).toISOString().slice(0,10);if(D.checkins.indexOf(d)<0)D.checkins.push(d)}D.frzUsed=(D.frzUsed||0)+1;save();X("frzOv");hap("medium");render()}
 function skipFreeze(){X("frzOv")}
@@ -816,8 +845,19 @@ document.getElementById("shareCd").innerHTML='<div style="margin:0 16px 8px;bord
 
 // Locked stats
 var lsH="";
-if(LEVELS.indexOf(lvl)>=2){var catC={};D.goals.forEach(function(g){catC[g.cat]=(catC[g.cat]||0)+1});var mxC=Math.max.apply(null,Object.values(catC).concat([1]));var catB="";Object.keys(CATS).forEach(function(k){var c=catC[k]||0;catB+='<div class="bari"><div class="barv">'+c+'</div><div class="bar" style="height:'+Math.max(c/mxC*100,5)+'%"></div><div class="barl">'+ci(k)+"</div></div>"});
-lsH+='<p class="st">'+(L==="ru"?"Аналитика":"Analytics")+'</p><div class="cd"><div class="ci"><div class="barc">'+catB+'</div></div></div>'}
+if(LEVELS.indexOf(lvl)>=2){
+lsH+='<p class="st">'+(L==="ru"?"Стрик 30 дней":"30-day streak")+'</p><div class="cd"><div class="ci"><svg viewBox="0 0 302 52" style="width:100%;height:52px">';
+for(var di=0;di<30;di++){var ddi=new Date(Date.now()-(29-di)*864e5).toISOString().slice(0,10);var dhit=D.checkins&&D.checkins.indexOf(ddi)>=0;var isT2=ddi===td();var dx=di*10+1;lsH+='<rect x="'+dx+'" y="4" width="8" height="36" rx="3" fill="'+(dhit?'var(--lk)':'var(--sc)')+'"'+(isT2?' stroke="var(--lk)" stroke-width="1.5"':'')+'/>';if(di%5===0||di===29){var lD=new Date(Date.now()-(29-di)*864e5);lsH+='<text x="'+(dx+4)+'" y="50" text-anchor="middle" font-size="7" fill="var(--hn)">'+lD.getDate()+'.'+(lD.getMonth()+1)+'</text>';}}
+lsH+='</svg></div></div>';
+lsH+='<p class="st">'+(L==="ru"?"По категориям":"By category")+'</p><div class="cd"><div class="ci">';
+var allCK2=Object.keys(CATS).concat((D.customCats||[]).map(function(c){return c.id}));
+var usedCK2=allCK2.filter(function(k){return D.goals.some(function(g){return g.cat===k&&!g.parentId})});
+if(!usedCK2.length)lsH+='<div style="font-size:13px;color:var(--hn);text-align:center;padding:8px">'+(L==="ru"?"Нет целей":"No goals")+'</div>';
+usedCK2.forEach(function(k){var tot2=D.goals.filter(function(g){return g.cat===k&&!g.parentId}).length;var dn2=D.goals.filter(function(g){return g.cat===k&&!g.parentId&&g.done}).length;var p2=tot2>0?dn2/tot2:0;lsH+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>'+ci(k)+' '+cn(k)+'</span><span style="color:var(--hn)">'+dn2+'/'+tot2+'</span></div><div style="height:8px;background:var(--sc);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.round(p2*100)+'%;background:var(--lk);border-radius:4px"></div></div></div>';});
+lsH+='</div></div>';
+lsH+='<p class="st">'+(L==="ru"?"Активность по неделям":"Weekly activity")+'</p><div class="cd"><div class="ci"><svg viewBox="0 0 294 86" style="width:100%;height:86px">';
+for(var wi2=0;wi2<8;wi2++){var wkD=0;for(var wdi2=0;wdi2<7;wdi2++){var wdd2=new Date(Date.now()-((7-wi2)*7+wdi2)*864e5).toISOString().slice(0,10);if(D.checkins&&D.checkins.indexOf(wdd2)>=0)wkD++;}var wp2=wkD/7;var wbh2=Math.max(3,Math.round(wp2*55));var wx2=wi2*37+4;lsH+='<rect x="'+wx2+'" y="'+(62-wbh2)+'" width="30" height="'+wbh2+'" rx="3" fill="var(--lk)" opacity="'+(0.3+0.7*wp2).toFixed(2)+'"/><text x="'+(wx2+15)+'" y="'+Math.max(12,55-wbh2)+'" text-anchor="middle" font-size="9" fill="var(--tx)" font-weight="600">'+Math.round(wp2*100)+'%</text><text x="'+(wx2+15)+'" y="78" text-anchor="middle" font-size="8" fill="var(--hn)">'+(wi2<7?'w-'+(7-wi2):(L==="ru"?"тек":"cur"))+'</text>';}
+lsH+='</svg></div></div>';}
 else{lsH+='<div class="lk" style="cursor:pointer" onclick="document.getElementById(\'storeOv\').classList.add(\'open\')"><div style="font-size:32px;margin-bottom:8px">🔒</div><div style="font-size:15px;font-weight:600">'+(L==="ru"?"Аналитика целей":"Goal analytics")+'</div><div style="font-size:13px;color:var(--hn);margin-top:4px">'+(L==="ru"?"Открывается на уровне CREATOR":"Unlocks at CREATOR level")+'</div></div>'}
 lsH+='<div class="lk" onclick="document.getElementById(\'storeOv\').classList.add(\'open\')"><div style="font-size:32px;margin-bottom:8px">🤖</div><div style="font-size:15px;font-weight:600">AI</div><div style="font-size:13px;color:var(--hn)">'+(L==="ru"?"Скоро":"Coming soon")+'</div></div>';
 document.getElementById("lkS").innerHTML=lsH;

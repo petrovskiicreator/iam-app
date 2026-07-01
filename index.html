@@ -48,6 +48,9 @@
 .frag.missing{background:var(--sc);color:var(--hn)}
 .rit-ov{position:fixed;inset:0;background:var(--bg);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;overflow-y:auto}
 .rit-ov.hidden{display:none}
+.svgb{transform-box:fill-box;transform-origin:bottom;animation:sgb .4s cubic-bezier(.22,1,.36,1) backwards}
+@keyframes sgb{from{transform:scaleY(0);opacity:0}to{transform:scaleY(1);opacity:1}}
+.catbar{transition:width .7s ease-out}
 </style>
 </head>
 <body>
@@ -88,6 +91,7 @@ var TMPLS={wealth:{r:["Я зарабатываю ___ в месяц","Бизне�
 
 var BADGES=[["🌱","Первый шаг","First step",function(){return D.goals.length>=1}],["✍️","10 записей","10 entries",function(){return te()>=10}],["🔥","7 дней","7 days",function(){return maxStr()>=7}],["💪","Челлендж","Challenge",function(){return(D.chDay||0)>=21}],["🎯","15 целей","15 goals",function(){return D.goals.length>=15}],["📝","50 записей","50 entries",function(){return te()>=50}],["👑","30 дней","30 days",function(){return maxStr()>=30}],["💎","Мастер","Master",function(){return te()>=100}]];
 
+var THEMES={classic:{},kosmos:{"--bg":"#0d0d1a","--tx":"#e2e2ff","--hn":"#7878bb","--lk":"#8b5cf6","--bt":"#8b5cf6","--btx":"#ffffff","--sc":"#12122a","--dv":"rgba(139,92,246,.18)","--gd":"#a78bfa","--gb":"rgba(167,139,250,.08)"},lux:{"--bg":"#0a0a0a","--tx":"#f5f5ee","--hn":"#88887c","--lk":"#d4af37","--bt":"#d4af37","--btx":"#0a0a0a","--sc":"#141414","--dv":"rgba(212,175,55,.14)","--gd":"#d4af37","--gb":"rgba(212,175,55,.06)"},minimal:{"--bg":"#f8f9fa","--tx":"#1a1a2e","--hn":"#9ca3af","--lk":"#059669","--bt":"#059669","--btx":"#ffffff","--sc":"#ffffff","--dv":"rgba(0,0,0,.06)","--gd":"#059669","--gb":"rgba(5,150,105,.06)"}};
 var QUICK_PRICES={SEEKER:499,CREATOR:999,VISIONARY:1999};
 var LVL_STAR={SEEKER:250,CREATOR:499,VISIONARY:999};
 
@@ -107,7 +111,7 @@ function maxStr(){if(!D.checkins||D.checkins.length<2)return D.checkins?D.checki
 function missed(){if(!D.checkins||!D.checkins.length)return 0;return Math.max(0,Math.floor((new Date(td())-new Date([...new Set(D.checkins)].sort().reverse()[0]))/864e5)-1)}
 function calcLvl(){var lv="DREAMER";if(D.quickLvl&&D.quickExp&&new Date(D.quickExp)>new Date()){var qi=LEVELS.indexOf(D.quickLvl);var ei=LEVELS.indexOf(lv);if(qi>ei)lv=D.quickLvl}for(var i=1;i<LEVELS.length;i++){var req=LVL_REQ[LEVELS[i]];if(!req)continue;var ok=true;if((D.checkins||[]).length<req.ci)ok=false;if(te()<req.en)ok=false;if(maxStr()<req.ms)ok=false;if(req.ch&&(D.chDay||0)<21)ok=false;if((D.shares||0)<req.sh)ok=false;if((D.actInv||0)<req.inv)ok=false;if((D.eggsFound||[]).length<req.eg)ok=false;if(ok&&LEVELS.indexOf(LEVELS[i])>LEVELS.indexOf(lv))lv=LEVELS[i]}return lv}
 function lim(){return LVL_LIM[calcLvl()]||LVL_LIM.DREAMER}
-function load(){try{var r=localStorage.getItem("iam3");if(r)return JSON.parse(r)}catch(e){}return{goals:[],vis:[],diary:[],grat:[],checkins:[],chDay:0,chRound:1,hasPair:false,extraGoals:0,onboarded:false,shares:0,actInv:0,eggsFound:[],fragments:{},wisdomDone:{},ritualDone:{},frzUsed:0,quickLvl:null,quickExp:null,lang:L,customCats:[]}}
+function load(){try{var r=localStorage.getItem("iam3");if(r)return JSON.parse(r)}catch(e){}return{goals:[],vis:[],diary:[],grat:[],checkins:[],chDay:0,chRound:1,hasPair:false,extraGoals:0,onboarded:false,shares:0,actInv:0,eggsFound:[],fragments:{},wisdomDone:{},ritualDone:{},frzUsed:0,quickLvl:null,quickExp:null,lang:L,customCats:[],ownedThemes:[],freeThemeUsed:false,theme:'classic'}}
 function save(){try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}if(sbCl&&TG_UID){sbCl.from("user_data").upsert({user_id:TG_UID,data:D,updated_at:new Date().toISOString()},{onConflict:"user_id"}).then(function(){}).catch(function(){});sbCl.from("bot_users").update({tz_offset:TZ_OFFSET}).eq("user_id",TG_UID).then(function(){}).catch(function(){});}}
 function X(id){document.getElementById(id).classList.remove("open")}
 
@@ -375,8 +379,8 @@ async function renderSharedDetail(goalId){
       var nM2=ranked.filter(function(st){return memberMap[st.user_id]}).length;
       if(totalDone>0&&nM2>0){
         var xStep2=Math.floor(280/nM2),bW2=Math.min(50,xStep2-6);
-        var chSvg='<svg viewBox="0 0 300 85" style="width:100%;height:85px">';
-        ranked.forEach(function(st2,ri){var m2=memberMap[st2.user_id];if(!m2)return;var pp=totalDone>0?(st2.tasks_done||0)/totalDone:0;var bh3=Math.max(3,Math.round(pp*55));var bx=ri*xStep2+10+Math.round((xStep2-bW2)/2);chSvg+='<rect x="'+bx+'" y="'+(62-bh3)+'" width="'+bW2+'" height="'+bh3+'" rx="3" fill="var(--lk)" opacity="'+(0.3+0.7*pp).toFixed(2)+'"/><text x="'+(bx+bW2/2)+'" y="'+Math.max(12,55-bh3)+'" text-anchor="middle" font-size="9" fill="var(--tx)" font-weight="600">'+Math.round(pp*100)+'%</text>';if(ri<3)chSvg+='<text x="'+(bx+bW2/2)+'" y="'+Math.max(14,59-bh3)+'" text-anchor="middle" font-size="11">'+(ri===0?'🥇':ri===1?'🥈':'🥉')+'</text>';chSvg+='<text x="'+(bx+bW2/2)+'" y="79" text-anchor="middle" font-size="8" fill="var(--hn)">'+(m2.username?'@'+m2.username.slice(0,7):(L==="ru"?'М'+ri:'M'+ri))+'</text>';});
+        var chSvg='<svg viewBox="0 0 300 85" style="width:100%;height:85px"><defs><linearGradient id="gdCt" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:var(--lk);stop-opacity:1"/><stop offset="100%" style="stop-color:var(--lk);stop-opacity:.4"/></linearGradient></defs>';
+        ranked.forEach(function(st2,ri){var m2=memberMap[st2.user_id];if(!m2)return;var pp=totalDone>0?(st2.tasks_done||0)/totalDone:0;var bh3=Math.max(3,Math.round(pp*55));var bx=ri*xStep2+10+Math.round((xStep2-bW2)/2);var ctip=(m2.username?'@'+m2.username:'M'+(ri+1))+': '+Math.round(pp*100)+'% ('+( st2.tasks_done||0)+')';chSvg+='<rect class="svgb" x="'+bx+'" y="'+(62-bh3)+'" width="'+bW2+'" height="'+bh3+'" rx="4" fill="url(#gdCt)" style="animation-delay:'+(ri*0.1)+'s;cursor:pointer" onclick="showBarTooltip(event,\''+ctip.replace(/'/g,"\\'")+'\')"/><text x="'+(bx+bW2/2)+'" y="'+Math.max(12,55-bh3)+'" text-anchor="middle" font-size="9" fill="var(--tx)" font-weight="600">'+Math.round(pp*100)+'%</text>';if(ri<3)chSvg+='<text x="'+(bx+bW2/2)+'" y="'+Math.max(14,59-bh3)+'" text-anchor="middle" font-size="11">'+(ri===0?'🥇':ri===1?'🥈':'🥉')+'</text>';chSvg+='<text x="'+(bx+bW2/2)+'" y="79" text-anchor="middle" font-size="8" fill="var(--hn)">'+(m2.username?'@'+m2.username.slice(0,7):(L==="ru"?'М'+ri:'M'+ri))+'</text>';});
         chSvg+='</svg>';
         h+='<div class="st">'+(L==="ru"?"Вклад участников":"Contribution")+'</div><div class="cd" style="margin:0 0 8px"><div class="ci">'+chSvg+'</div></div>';
       }
@@ -615,6 +619,44 @@ function advRitBlock(){
   }else{showRitBlock();}
 }
 
+// ====== THEMES ======
+function applyTheme(name){var vars=["--bg","--tx","--hn","--lk","--bt","--btx","--sc","--dv","--gd","--gb"];vars.forEach(function(v){document.documentElement.style.removeProperty(v)});var t=THEMES[name];if(!t)return;Object.keys(t).forEach(function(v){document.documentElement.style.setProperty(v,t[v])})}
+function activateTheme(name){D.theme=name;save();applyTheme(name);renderThemeStore();if(D.onboarded)render();hap()}
+function claimFreeTheme(name){if(!D.ownedThemes)D.ownedThemes=[];if(D.ownedThemes.indexOf(name)<0)D.ownedThemes.push(name);D.freeThemeUsed=true;D.theme=name;save();applyTheme(name);renderThemeStore();if(D.onboarded)render();hap('medium')}
+var _svgTtT=null;
+function showBarTooltip(evt,txt){clearTimeout(_svgTtT);var el=document.getElementById('svgTt');if(!el){el=document.createElement('div');el.id='svgTt';el.style.cssText='position:fixed;background:var(--tx);color:var(--bg);padding:5px 10px;border-radius:8px;font-size:12px;font-weight:600;pointer-events:none;z-index:9999;white-space:nowrap;transform:translateX(-50%);transition:opacity .2s;box-shadow:0 3px 12px rgba(0,0,0,.25)';document.body.appendChild(el)}el.textContent=txt;el.style.left=evt.clientX+'px';el.style.top=(evt.clientY-46)+'px';el.style.opacity='1';_svgTtT=setTimeout(function(){el.style.opacity='0'},1800)}
+function renderThemeStore(){
+  var el=document.getElementById('themeStoreSec');if(!el)return;
+  var lvlT=calcLvl(),isVis=LEVELS.indexOf(lvlT)>=LEVELS.indexOf('VISIONARY'),owned=D.ownedThemes||[],cur=D.theme||'classic';
+  var td3=[
+    {id:'classic',icon:'🏠',name:L==="ru"?"Классика":"Classic",c1:'#e8e8e8',c2:'#2481cc',free:true},
+    {id:'kosmos',icon:'🌌',name:'Kosmos',c1:'#0d0d1a',c2:'#8b5cf6',stars:199,rub:299},
+    {id:'lux',icon:'💎',name:'Lux',c1:'#0a0a0a',c2:'#d4af37',stars:199,rub:299},
+    {id:'minimal',icon:'🌿',name:'Minimal',c1:'#f0f4f0',c2:'#059669',stars:199,rub:299}
+  ];
+  var th='';
+  td3.forEach(function(t){
+    var isActive=cur===t.id,isOwned=t.free||owned.indexOf(t.id)>=0;
+    th+='<div class="cd" style="margin:0 0 8px"><div class="store-item">';
+    th+='<div style="display:flex;align-items:center;gap:10px"><div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,'+t.c1+' 0%,'+t.c2+' 100%);border:1.5px solid var(--dv);flex-shrink:0'+(isActive?';outline:2.5px solid var(--lk);outline-offset:2px':'')+'">&nbsp;</div>';
+    th+='<div><div style="font-size:15px;font-weight:600">'+t.icon+' '+t.name+'</div>';
+    if(isActive)th+='<div style="font-size:11px;color:var(--lk);font-weight:600">✓ '+(L==="ru"?"Активна":"Active")+'</div>';
+    th+='</div></div>';
+    th+='<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">';
+    if(isActive){th+='<span style="font-size:20px;color:var(--lk)">✓</span>';}
+    else if(isOwned){th+='<button class="btn" style="width:auto;padding:8px 14px;font-size:13px" onclick="activateTheme(\''+t.id+'\')">'+(L==="ru"?"Выбрать":"Select")+'</button>';}
+    else if(!t.free&&isVis&&!D.freeThemeUsed){
+      th+='<button class="btn" style="width:auto;padding:8px 14px;font-size:13px;background:var(--gd);color:#fff" onclick="claimFreeTheme(\''+t.id+'\')">'+(L==="ru"?"Бесплатно 🎁":"Free 🎁")+'</button>';
+      th+='<button class="btg" style="width:auto;padding:5px 10px;font-size:11px" onclick="TG.openTelegramLink(\'https://t.me/IAM_app_bot?start=buy_theme_'+t.id+'\')">⭐ '+t.stars+'</button>';
+    }else if(!t.free){
+      th+='<button class="btg" style="width:auto;padding:8px 12px;font-size:13px" onclick="showCardSoon()">'+t.rub+' ₽</button>';
+      th+='<button class="btn" style="width:auto;padding:5px 10px;font-size:11px" onclick="TG.openTelegramLink(\'https://t.me/IAM_app_bot?start=buy_theme_'+t.id+'\')">⭐ '+t.stars+'</button>';
+    }
+    th+='</div></div></div>';
+  });
+  el.innerHTML=th;
+}
+
 // ====== CUSTOM CATEGORIES ======
 var _ccIcon="⭐",_ccColor="#2481cc";
 function openCustomCat(){var lvl=calcLvl();if(LEVELS.indexOf(lvl)<LEVELS.indexOf("VISIONARY")){try{TG.showAlert(L==="ru"?"🔒 Доступно с уровня Визионер":"🔒 Available from Visionary level")}catch(e){alert(L==="ru"?"🔒 Доступно с уровня Визионер":"🔒 Available from Visionary level")};return}document.getElementById("ccNameIn").value="";_ccIcon="⭐";_ccColor="#2481cc";var cig=document.getElementById("ccIconGrid");if(cig)cig.querySelectorAll("button").forEach(function(b){b.style.borderColor=b.textContent===_ccIcon?"var(--lk)":"var(--dv)"});var ccg=document.getElementById("ccColorGrid");if(ccg)ccg.querySelectorAll("button").forEach(function(b){b.style.borderColor="transparent"});document.getElementById("customCatOv").classList.add("open")}
@@ -674,6 +716,7 @@ h+='<p class="st">'+(L==="ru"?"Пакеты целей":"Goal packs")+'</p><div 
 h+='<p class="st">'+(L==="ru"?"Заморозка стрика":"Streak freeze")+'</p><div class="cd" style="margin:0 0 8px"><div class="ci" style="text-align:center;font-size:14px;color:var(--hn)">'+(L==="ru"?"Покупается при пропуске дня. Цена растёт: 99→149→199→249→299₽":"Purchased when you miss a day. Price grows: 99→149→199→249→299₽")+'</div></div>';
 h+='<p class="st">'+(L==="ru"?"Быстрый путь":"Quick path")+'</p><div style="font-size:12px;color:var(--hn);text-align:center;margin-bottom:8px">'+(L==="ru"?"Действует 30 дней при минимальной активности":"Active 30 days with minimum activity")+'</div>';
 ["SEEKER","CREATOR","VISIONARY"].forEach(function(lv){h+='<div class="cd" style="margin:0 0 8px"><div class="store-item"><div><div style="font-size:15px;font-weight:600">'+ln(lv)+'</div><div style="font-size:12px;color:var(--hn)">'+(L==="ru"?"30 дней":"30 days")+'</div></div><div style="display:flex;gap:6px"><button class="btg" style="width:auto;padding:9px 14px;font-size:14px" onclick="showCardSoon()">'+QUICK_PRICES[lv]+' ₽</button><button class="btn" style="width:auto;padding:9px 14px;font-size:14px" onclick="TG.openTelegramLink(\'https://t.me/IAM_app_bot?start=buy_lvl'+lv+'\')">⭐ '+LVL_STAR[lv]+'</button></div></div></div>'});
+h+='<p class="st">🎨 '+(L==="ru"?"Темы":"Themes")+'</p><div style="font-size:12px;color:var(--hn);text-align:center;margin-bottom:8px">'+(L==="ru"?"Персонализируй оформление приложения":"Personalize the app appearance")+'</div><div id="themeStoreSec"></div>';
 h+='<button class="btg" onclick="X(\'storeOv\')" style="margin-top:12px">'+(L==="ru"?"Закрыть":"Close")+'</button></div></div>';
 
 // PACK OVERLAY
@@ -846,28 +889,30 @@ document.getElementById("shareCd").innerHTML='<div style="margin:0 16px 8px;bord
 // Locked stats
 var lsH="";
 if(LEVELS.indexOf(lvl)>=2){
-lsH+='<p class="st">'+(L==="ru"?"Стрик 30 дней":"30-day streak")+'</p><div class="cd"><div class="ci"><svg viewBox="0 0 302 52" style="width:100%;height:52px">';
-for(var di=0;di<30;di++){var ddi=new Date(Date.now()-(29-di)*864e5).toISOString().slice(0,10);var dhit=D.checkins&&D.checkins.indexOf(ddi)>=0;var isT2=ddi===td();var dx=di*10+1;lsH+='<rect x="'+dx+'" y="4" width="8" height="36" rx="3" fill="'+(dhit?'var(--lk)':'var(--sc)')+'"'+(isT2?' stroke="var(--lk)" stroke-width="1.5"':'')+'/>';if(di%5===0||di===29){var lD=new Date(Date.now()-(29-di)*864e5);lsH+='<text x="'+(dx+4)+'" y="50" text-anchor="middle" font-size="7" fill="var(--hn)">'+lD.getDate()+'.'+(lD.getMonth()+1)+'</text>';}}
+lsH+='<p class="st">'+(L==="ru"?"Стрик 30 дней":"30-day streak")+'</p><div class="cd"><div class="ci"><svg viewBox="0 0 302 52" style="width:100%;height:52px"><defs><linearGradient id="gd30" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:var(--lk);stop-opacity:1"/><stop offset="100%" style="stop-color:var(--lk);stop-opacity:.45"/></linearGradient></defs>';
+for(var di=0;di<30;di++){var ddi=new Date(Date.now()-(29-di)*864e5).toISOString().slice(0,10);var dhit=D.checkins&&D.checkins.indexOf(ddi)>=0;var isT2=ddi===td();var dx=di*10+1;var dDate=new Date(Date.now()-(29-di)*864e5);var dtip=ddi+(dhit?(' ✓'):(' —'));lsH+='<rect class="svgb" x="'+dx+'" y="4" width="8" height="36" rx="4" fill="'+(dhit?'url(#gd30)':'var(--sc)')+'"'+(isT2?' stroke="var(--lk)" stroke-width="1.5"':'')+' style="animation-delay:'+(di*0.018)+'s;cursor:pointer" onclick="showBarTooltip(event,\''+dtip+'\')" />';if(di%5===0||di===29){lsH+='<text x="'+(dx+4)+'" y="50" text-anchor="middle" font-size="7" fill="var(--hn)">'+dDate.getDate()+'.'+(dDate.getMonth()+1)+'</text>';}}
 lsH+='</svg></div></div>';
 lsH+='<p class="st">'+(L==="ru"?"По категориям":"By category")+'</p><div class="cd"><div class="ci">';
 var allCK2=Object.keys(CATS).concat((D.customCats||[]).map(function(c){return c.id}));
 var usedCK2=allCK2.filter(function(k){return D.goals.some(function(g){return g.cat===k&&!g.parentId})});
 if(!usedCK2.length)lsH+='<div style="font-size:13px;color:var(--hn);text-align:center;padding:8px">'+(L==="ru"?"Нет целей":"No goals")+'</div>';
-usedCK2.forEach(function(k){var tot2=D.goals.filter(function(g){return g.cat===k&&!g.parentId}).length;var dn2=D.goals.filter(function(g){return g.cat===k&&!g.parentId&&g.done}).length;var p2=tot2>0?dn2/tot2:0;lsH+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>'+ci(k)+' '+cn(k)+'</span><span style="color:var(--hn)">'+dn2+'/'+tot2+'</span></div><div style="height:8px;background:var(--sc);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.round(p2*100)+'%;background:var(--lk);border-radius:4px"></div></div></div>';});
+usedCK2.forEach(function(k){var tot2=D.goals.filter(function(g){return g.cat===k&&!g.parentId}).length;var dn2=D.goals.filter(function(g){return g.cat===k&&!g.parentId&&g.done}).length;var p2=tot2>0?dn2/tot2:0;var pw2=Math.round(p2*100);lsH+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>'+ci(k)+' '+cn(k)+'</span><span style="color:var(--hn);font-weight:600">'+dn2+'/'+tot2+'</span></div><div style="height:9px;background:var(--sc);border-radius:5px;overflow:hidden"><div class="catbar" data-w="'+pw2+'" style="height:100%;width:0;background:linear-gradient(90deg,var(--lk),var(--gd));border-radius:5px"></div></div></div>';});
 lsH+='</div></div>';
-lsH+='<p class="st">'+(L==="ru"?"Активность по неделям":"Weekly activity")+'</p><div class="cd"><div class="ci"><svg viewBox="0 0 294 86" style="width:100%;height:86px">';
-for(var wi2=0;wi2<8;wi2++){var wkD=0;for(var wdi2=0;wdi2<7;wdi2++){var wdd2=new Date(Date.now()-((7-wi2)*7+wdi2)*864e5).toISOString().slice(0,10);if(D.checkins&&D.checkins.indexOf(wdd2)>=0)wkD++;}var wp2=wkD/7;var wbh2=Math.max(3,Math.round(wp2*55));var wx2=wi2*37+4;lsH+='<rect x="'+wx2+'" y="'+(62-wbh2)+'" width="30" height="'+wbh2+'" rx="3" fill="var(--lk)" opacity="'+(0.3+0.7*wp2).toFixed(2)+'"/><text x="'+(wx2+15)+'" y="'+Math.max(12,55-wbh2)+'" text-anchor="middle" font-size="9" fill="var(--tx)" font-weight="600">'+Math.round(wp2*100)+'%</text><text x="'+(wx2+15)+'" y="78" text-anchor="middle" font-size="8" fill="var(--hn)">'+(wi2<7?'w-'+(7-wi2):(L==="ru"?"тек":"cur"))+'</text>';}
+lsH+='<p class="st">'+(L==="ru"?"Активность по неделям":"Weekly activity")+'</p><div class="cd"><div class="ci"><svg viewBox="0 0 294 86" style="width:100%;height:86px"><defs><linearGradient id="gdWk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:var(--lk);stop-opacity:1"/><stop offset="100%" style="stop-color:var(--lk);stop-opacity:.35"/></linearGradient></defs>';
+for(var wi2=0;wi2<8;wi2++){var wkD=0;for(var wdi2=0;wdi2<7;wdi2++){var wdd2=new Date(Date.now()-((7-wi2)*7+wdi2)*864e5).toISOString().slice(0,10);if(D.checkins&&D.checkins.indexOf(wdd2)>=0)wkD++;}var wp2=wkD/7;var wbh2=Math.max(3,Math.round(wp2*55));var wx2=wi2*37+4;var wtip=(L==="ru"?"Нед.":"Wk")+(wi2<7?'-'+(7-wi2):'')+': '+wkD+'/7';lsH+='<rect class="svgb" x="'+wx2+'" y="'+(62-wbh2)+'" width="30" height="'+wbh2+'" rx="4" fill="url(#gdWk)" style="animation-delay:'+(wi2*0.07)+'s;cursor:pointer" onclick="showBarTooltip(event,\''+wtip+'\')" /><text x="'+(wx2+15)+'" y="'+Math.max(12,55-wbh2)+'" text-anchor="middle" font-size="9" fill="var(--tx)" font-weight="600">'+Math.round(wp2*100)+'%</text><text x="'+(wx2+15)+'" y="78" text-anchor="middle" font-size="8" fill="var(--hn)">'+(wi2<7?'w-'+(7-wi2):(L==="ru"?"тек":"cur"))+'</text>';}
 lsH+='</svg></div></div>';}
 else{lsH+='<div class="lk" style="cursor:pointer" onclick="document.getElementById(\'storeOv\').classList.add(\'open\')"><div style="font-size:32px;margin-bottom:8px">🔒</div><div style="font-size:15px;font-weight:600">'+(L==="ru"?"Аналитика целей":"Goal analytics")+'</div><div style="font-size:13px;color:var(--hn);margin-top:4px">'+(L==="ru"?"Открывается на уровне CREATOR":"Unlocks at CREATOR level")+'</div></div>'}
 lsH+='<div class="lk" onclick="document.getElementById(\'storeOv\').classList.add(\'open\')"><div style="font-size:32px;margin-bottom:8px">🤖</div><div style="font-size:15px;font-weight:600">AI</div><div style="font-size:13px;color:var(--hn)">'+(L==="ru"?"Скоро":"Coming soon")+'</div></div>';
 document.getElementById("lkS").innerHTML=lsH;
+requestAnimationFrame(function(){document.querySelectorAll('.catbar').forEach(function(el){el.style.width=el.dataset.w+'%'})});
+renderThemeStore();
 }
 
 // ====== INIT ======
 var _pendingSharedId=null;
 try{var _sp=TG&&TG.initDataUnsafe&&TG.initDataUnsafe.start_param;if(_sp&&_sp.startsWith("shared_"))_pendingSharedId=_sp.slice(7)}catch(e){}
 if(!_pendingSharedId){try{var _hash=window.location.hash;if(_hash&&_hash.startsWith("#shared_"))_pendingSharedId=_hash.slice(8)}catch(e){}}
-(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}if(!D.onboarded)showOnb();else{build();if(_pendingSharedId){openSharedDetail(_pendingSharedId);_pendingSharedId=null;}}})();
+(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}applyTheme(D.theme||'classic');if(!D.onboarded)showOnb();else{build();if(_pendingSharedId){openSharedDetail(_pendingSharedId);_pendingSharedId=null;}}})();
 </script>
 </body>
 </html>

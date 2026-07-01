@@ -93,7 +93,7 @@ var LVL_STAR={SEEKER:250,CREATOR:499,VISIONARY:999};
 
 // ====== HELPERS ======
 function r(k){return L==="ru"?1:2}
-function cn(k){return CATS[k]?CATS[k][r()]:""} function ci(k){return CATS[k]?CATS[k][0]:""}
+function cn(k){if(CATS[k])return CATS[k][r()];var cc=(D.customCats||[]).find(function(c){return c.id===k});return cc?cc.name:""} function ci(k){if(CATS[k])return CATS[k][0];var cc=(D.customCats||[]).find(function(c){return c.id===k});return cc?cc.icon:"🏷️"}
 function hn(k){for(var i=0;i<HZ.length;i++)if(HZ[i][0]===k)return HZ[i][r()];return""}
 function ln(k){return LVL_N[k]?LVL_N[k][0]+" "+LVL_N[k][r()]:""}
 function li(k){return LVL_N[k]?LVL_N[k][0]:""}
@@ -107,7 +107,7 @@ function maxStr(){if(!D.checkins||D.checkins.length<2)return D.checkins?D.checki
 function missed(){if(!D.checkins||!D.checkins.length)return 0;return Math.max(0,Math.floor((new Date(td())-new Date([...new Set(D.checkins)].sort().reverse()[0]))/864e5)-1)}
 function calcLvl(){var lv="DREAMER";if(D.quickLvl&&D.quickExp&&new Date(D.quickExp)>new Date()){var qi=LEVELS.indexOf(D.quickLvl);var ei=LEVELS.indexOf(lv);if(qi>ei)lv=D.quickLvl}for(var i=1;i<LEVELS.length;i++){var req=LVL_REQ[LEVELS[i]];if(!req)continue;var ok=true;if((D.checkins||[]).length<req.ci)ok=false;if(te()<req.en)ok=false;if(maxStr()<req.ms)ok=false;if(req.ch&&(D.chDay||0)<21)ok=false;if((D.shares||0)<req.sh)ok=false;if((D.actInv||0)<req.inv)ok=false;if((D.eggsFound||[]).length<req.eg)ok=false;if(ok&&LEVELS.indexOf(LEVELS[i])>LEVELS.indexOf(lv))lv=LEVELS[i]}return lv}
 function lim(){return LVL_LIM[calcLvl()]||LVL_LIM.DREAMER}
-function load(){try{var r=localStorage.getItem("iam3");if(r)return JSON.parse(r)}catch(e){}return{goals:[],vis:[],diary:[],grat:[],checkins:[],chDay:0,chRound:1,hasPair:false,extraGoals:0,onboarded:false,shares:0,actInv:0,eggsFound:[],fragments:{},wisdomDone:{},ritualDone:{},frzUsed:0,quickLvl:null,quickExp:null,lang:L}}
+function load(){try{var r=localStorage.getItem("iam3");if(r)return JSON.parse(r)}catch(e){}return{goals:[],vis:[],diary:[],grat:[],checkins:[],chDay:0,chRound:1,hasPair:false,extraGoals:0,onboarded:false,shares:0,actInv:0,eggsFound:[],fragments:{},wisdomDone:{},ritualDone:{},frzUsed:0,quickLvl:null,quickExp:null,lang:L,customCats:[]}}
 function save(){try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}if(sbCl&&TG_UID){sbCl.from("user_data").upsert({user_id:TG_UID,data:D,updated_at:new Date().toISOString()},{onConflict:"user_id"}).then(function(){}).catch(function(){});sbCl.from("bot_users").update({tz_offset:TZ_OFFSET}).eq("user_id",TG_UID).then(function(){}).catch(function(){});}}
 function X(id){document.getElementById(id).classList.remove("open")}
 
@@ -189,7 +189,7 @@ function saveChD(){var type=document.getElementById("chFA").value,t=document.get
 function startNR(){D.chRound=(D.chRound||1)+1;save();hap("heavy");render()}
 function checkEgg(){var inp=document.getElementById("eggIn");if(!inp)return;var phrase=inp.value.trim().toLowerCase();for(var i=0;i<EGGS.length;i++){var eg=EGGS[i];var frags=L==="ru"?eg.p:eg.e;var full=frags.join(" ");if(phrase===full&&(D.eggsFound||[]).indexOf(i)<0){if(!D.eggsFound)D.eggsFound=[];D.eggsFound.push(i);if(eg.t==="goals")D.extraGoals=(D.extraGoals||0)+eg.r;save();hap("heavy");alert((L==="ru"?"🎉 Пасхалка найдена! +":"🎉 Easter egg! +")+eg.r+" "+(eg.t==="goals"?(L==="ru"?"целей":"goals"):(L==="ru"?"заморозок":"freezes")));inp.value="";render();return}for(var j=0;j<frags.length;j++){if(phrase===frags[j]){if(!D.fragments)D.fragments={};var key=i+"_"+j;if(!D.fragments[key]){D.fragments[key]=true;save();hap();alert((L==="ru"?"✨ Фрагмент найден! ":"✨ Fragment found! ")+(j+1)+"/3");inp.value="";render();return}}}}alert(L==="ru"?"Не та фраза. Ищи в контенте!":"Wrong phrase. Check our content!");inp.value=""}
 function confirmWis(){var inp=document.getElementById("wisIn");if(!inp||!inp.value.trim())return;D.wisdomDone[td()]=true;save();hap();render()}
-function openRit(){var h=new Date().getHours(),isE=h>=17;document.getElementById("ritTitle").textContent=isE?(L==="ru"?"Вечерний ритуал 🌙":"Evening ritual 🌙"):(L==="ru"?"Утренний ритуал ☀️":"Morning ritual ☀️");var rK=td()+(isE?"e":"m"),done=D.ritualDone[rK]||{};var items=isE?["gratitude","goals","checkin"]:["goals","vision","wisdom","gratitude"];var labels={goals:L==="ru"?"Цели":"Goals",vision:L==="ru"?"Визуализация":"Visualization",gratitude:L==="ru"?"Благодарность":"Gratitude",wisdom:L==="ru"?"Мудрость":"Wisdom",checkin:L==="ru"?"Чек-ин":"Check-in"};var acts={goals:"go('goals');X('ritOv')",vision:"openW('vision');X('ritOv')",gratitude:"openW('gratitude');X('ritOv')",wisdom:"X('ritOv')",checkin:"doCI();X('ritOv')"};
+function openRit(){var h=new Date().getHours(),isE=h>=17;document.getElementById("ritTitle").textContent=isE?(L==="ru"?"Вечерний ритуал 🌙":"Evening ritual 🌙"):(L==="ru"?"Утренний ритуал ☀️":"Morning ritual ☀️");var rK=td()+(isE?"e":"m"),done=D.ritualDone[rK]||{};var items=isE?["combined","checkin"]:["goals","combined","wisdom"];var labels={goals:L==="ru"?"Цели":"Goals",combined:L==="ru"?"✨ Сегодня я...":"✨ Today I am...",vision:L==="ru"?"Визуализация":"Visualization",gratitude:L==="ru"?"Благодарность":"Gratitude",wisdom:L==="ru"?"Мудрость":"Wisdom",checkin:L==="ru"?"Чек-ин":"Check-in"};var acts={goals:"go('goals');X('ritOv')",combined:"openW('vision');X('ritOv')",vision:"openW('vision');X('ritOv')",gratitude:"openW('gratitude');X('ritOv')",wisdom:"X('ritOv')",checkin:"doCI();X('ritOv')"};
 document.getElementById("ritBody").innerHTML=items.map(function(s,i){var d=done[s];return'<div class="rstp"><div style="font-size:12px;color:var(--lk);font-weight:600;margin-bottom:4px">'+(L==="ru"?"Шаг ":"Step ")+(i+1)+'</div><div style="font-size:16px;font-weight:600;margin-bottom:6px">'+labels[s]+'</div>'+(d?'<div style="color:var(--lk)">✅</div>':'<button class="btn" style="margin-top:8px" onclick="markRit(\''+rK+'\',\''+s+'\');'+acts[s]+'">'+(L==="ru"?"Выполнить ✓":"Complete ✓")+'</button>')+'</div>'}).join("")+(Object.keys(done).length>=items.length?'<div style="text-align:center;padding:16px;font-size:16px;color:var(--lk);font-weight:600">'+(L==="ru"?"✅ Ритуал выполнен":"✅ Ritual complete")+'</div>':"");
 document.getElementById("ritOv").classList.add("open")}
 function markRit(rK,s){if(!D.ritualDone[rK])D.ritualDone[rK]={};D.ritualDone[rK][s]=true;save();hap()}
@@ -541,13 +541,11 @@ function checkRitual(){
 }
 function getRitSteps(){
   return ritBlockMorning?[
-    {key:"goals",title:L==="ru"?"☀️ Утренний ритуал":"☀️ Morning ritual",step:L==="ru"?"Шаг 1 из 3: Читай цели":"Step 1 of 3: Read goals",desc:L==="ru"?"Открой список целей. Перечитай каждую — наполнись намерением на день.":"Open your goals. Read each one — fill yourself with intention for the day.",type:"action",btn:L==="ru"?"Прочитал ✓":"Read ✓"},
-    {key:"vision",title:L==="ru"?"☀️ Утренний ритуал":"☀️ Morning ritual",step:L==="ru"?"Шаг 2 из 3: Визуализация":"Step 2 of 3: Visualization",desc:L==="ru"?"Напиши от первого лица. Что происходит через 3 года? Детали, ощущения, запахи.":"Write in 1st person. What happens in 3 years? Details, feelings, smells.",type:"text",ph:L==="ru"?"Сейчас 2028 год. Я просыпаюсь и...":"It is 2028. I wake up and...",btn:L==="ru"?"Записать ✓":"Write ✓"},
-    {key:"grat",title:L==="ru"?"☀️ Утренний ритуал":"☀️ Morning ritual",step:L==="ru"?"Шаг 3 из 3: Благодарность":"Step 3 of 3: Gratitude",desc:L==="ru"?"Одна конкретная вещь прямо сейчас, за которую ты искренне благодарен.":"One specific thing right now you are genuinely grateful for.",type:"text",ph:L==="ru"?"Я благодарен за...":"I am grateful for...",btn:L==="ru"?"Записать ✓":"Write ✓"}
+    {key:"goals",title:L==="ru"?"☀️ Утренний ритуал":"☀️ Morning ritual",step:L==="ru"?"Шаг 1 из 2: Читай цели":"Step 1 of 2: Read goals",desc:L==="ru"?"Открой список целей. Перечитай каждую — наполнись намерением на день.":"Open your goals. Read each one — fill yourself with intention for the day.",type:"action",btn:L==="ru"?"Прочитал ✓":"Read ✓"},
+    {key:"combined",title:L==="ru"?"☀️ Утренний ритуал":"☀️ Morning ritual",step:L==="ru"?"Шаг 2 из 2: Практика":"Step 2 of 2: Practice",desc:L==="ru"?"Одна фраза о том, кем ты становишься сегодня.":"One phrase about who you are becoming today.",type:"text",ph:L==="ru"?"Сегодня я...":"Today I am...",btn:L==="ru"?"Записать ✓":"Write ✓"}
   ]:[
-    {key:"did",title:L==="ru"?"🌙 Вечерний ритуал":"🌙 Evening ritual",step:L==="ru"?"Шаг 1 из 3: Действия для целей":"Step 1 of 3: Actions for goals",desc:L==="ru"?"Что ты сделал сегодня для своих целей? Любое действие, большое или малое.":"What did you do today for your goals? Any action, big or small.",type:"text",ph:L==="ru"?"Сегодня я сделал...":"Today I did...",btn:L==="ru"?"Записать ✓":"Write ✓"},
-    {key:"good",title:L==="ru"?"🌙 Вечерний ритуал":"🌙 Evening ritual",step:L==="ru"?"Шаг 2 из 3: Что было хорошего":"Step 2 of 3: What was good",desc:L==="ru"?"Одна хорошая вещь, которая произошла сегодня. Любая, большая или маленькая.":"One good thing that happened today. Anything, big or small.",type:"text",ph:L==="ru"?"Сегодня было хорошо, что...":"Today it was good that...",btn:L==="ru"?"Записать ✓":"Write ✓"},
-    {key:"checkin",title:L==="ru"?"🌙 Вечерний ритуал":"🌙 Evening ritual",step:L==="ru"?"Шаг 3 из 3: Чек-ин":"Step 3 of 3: Check-in",desc:L==="ru"?"Отметь день выполненным. Ты сегодня проявился.":"Mark the day as complete. You showed up today.",type:"checkin",btn:L==="ru"?"Отметить ✓":"Check in ✓"}
+    {key:"combined",title:L==="ru"?"🌙 Вечерний ритуал":"🌙 Evening ritual",step:L==="ru"?"Шаг 1 из 2: Практика":"Step 1 of 2: Practice",desc:L==="ru"?"Одна фраза о том, кем ты становишься сегодня.":"One phrase about who you are becoming today.",type:"text",ph:L==="ru"?"Сегодня я...":"Today I am...",btn:L==="ru"?"Записать ✓":"Write ✓"},
+    {key:"checkin",title:L==="ru"?"🌙 Вечерний ритуал":"🌙 Evening ritual",step:L==="ru"?"Шаг 2 из 2: Чек-ин":"Step 2 of 2: Check-in",desc:L==="ru"?"Отметь день выполненным. Ты сегодня проявился.":"Mark the day as complete. You showed up today.",type:"checkin",btn:L==="ru"?"Отметить ✓":"Check in ✓"}
   ];
 }
 function showRitBlock(){
@@ -574,19 +572,25 @@ function saveRitBlock(key){
   var txt=document.getElementById("ritBlockTxt");
   if(!txt||!txt.value.trim()){alert(L==="ru"?"Напиши хотя бы одно предложение":"Write at least one sentence");return}
   var e={id:Date.now(),text:txt.value.trim(),date:td()};
-  if(key==="vision"){if(!D.vis)D.vis=[];e.mood=visMV;D.vis.unshift(e)}else if(key==="grat"){if(!D.grat)D.grat=[];D.grat.unshift(e)}
+  if(key==="vision"||key==="combined"){if(!D.vis)D.vis=[];e.mood=visMV;D.vis.unshift(e)}else if(key==="grat"){if(!D.grat)D.grat=[];D.grat.unshift(e)}
   save();
   advRitBlock();
 }
 function advRitBlock(){
   ritBlockStep++;
-  if(ritBlockStep>=3){
+  if(ritBlockStep>=getRitSteps().length){
     localStorage.setItem(ritBlockKey,"1");
     var el=document.getElementById("ritBlockOv");
     if(el)el.classList.add("hidden");
     render();
   }else{showRitBlock();}
 }
+
+// ====== CUSTOM CATEGORIES ======
+var _ccIcon="⭐",_ccColor="#2481cc";
+function openCustomCat(){var lvl=calcLvl();if(LEVELS.indexOf(lvl)<LEVELS.indexOf("VISIONARY")){try{TG.showAlert(L==="ru"?"🔒 Доступно с уровня Визионер":"🔒 Available from Visionary level")}catch(e){alert(L==="ru"?"🔒 Доступно с уровня Визионер":"🔒 Available from Visionary level")};return}document.getElementById("ccNameIn").value="";_ccIcon="⭐";_ccColor="#2481cc";var cig=document.getElementById("ccIconGrid");if(cig)cig.querySelectorAll("button").forEach(function(b){b.style.borderColor=b.textContent===_ccIcon?"var(--lk)":"var(--dv)"});var ccg=document.getElementById("ccColorGrid");if(ccg)ccg.querySelectorAll("button").forEach(function(b){b.style.borderColor="transparent"});document.getElementById("customCatOv").classList.add("open")}
+function saveCustomCat(){var name=document.getElementById("ccNameIn").value.trim();if(!name){try{TG.showAlert(L==="ru"?"Введи название":"Enter a name")}catch(e){alert("Enter a name")};return}if(!D.customCats)D.customCats=[];D.customCats.push({id:"cc_"+Date.now(),name:name,icon:_ccIcon,color:_ccColor});save();X("customCatOv");rebuildCatR();hap()}
+function rebuildCatR(){var catR=document.getElementById("catR");if(!catR)return;catR.innerHTML="";var lvl=calcLvl();Object.keys(CATS).forEach(function(k){var b=document.createElement("button");b.className="cc"+(k===fCat?" a":"");b.dataset.k=k;b.textContent=ci(k)+" "+cn(k);b.onclick=function(){fCat=k;catR.querySelectorAll(".cc").forEach(function(x){x.classList.remove("a")});b.classList.add("a")};catR.appendChild(b)});(D.customCats||[]).forEach(function(c){var b=document.createElement("button");b.className="cc"+(c.id===fCat?" a":"");b.dataset.k=c.id;b.style.borderColor=c.color;b.textContent=c.icon+" "+c.name;b.onclick=function(){fCat=c.id;catR.querySelectorAll(".cc").forEach(function(x){x.classList.remove("a")});b.classList.add("a")};catR.appendChild(b)});var isVis=LEVELS.indexOf(lvl)>=LEVELS.indexOf("VISIONARY");var ab=document.createElement("button");ab.className="cc";if(isVis){ab.textContent="+ "+(L==="ru"?"Своя":"Custom");ab.onclick=function(){openCustomCat()}}else{ab.style.opacity=".5";ab.textContent="🔒 "+(L==="ru"?"Своя":"Custom");ab.title=L==="ru"?"Доступно с уровня Визионер":"Available from Visionary level";ab.onclick=function(){try{TG.showAlert(L==="ru"?"🔒 Своя категория открывается на уровне Визионер":"🔒 Custom categories unlock at Visionary level")}catch(e){alert(L==="ru"?"Откроется на уровне Визионер":"Unlocks at Visionary level")}}}catR.appendChild(ab)}
 
 // ====== BUILD ======
 function build(){
@@ -677,6 +681,7 @@ h+='<div class="po" id="inviteSharedOv" onclick="this.classList.remove(\'open\')
 // ADD SHARED TASK (bottom sheet)
 h+='<div class="po" id="addSharedTaskOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-size:18px;font-weight:700">'+(L==="ru"?"Новая задача":"New task")+'</span><button style="background:none;border:none;color:var(--hn);font-size:24px;cursor:pointer;padding:0;line-height:1" onclick="X(\'addSharedTaskOv\')">×</button></div><input type="hidden" id="addTaskGoalId"><div style="margin-bottom:12px"><input class="egg-in" id="sgTaskTxt" placeholder="'+(L==="ru"?"Текст задачи...":"Task text...")+'"></div><div style="margin-bottom:12px"><label class="fl">'+(L==="ru"?"Назначить":"Assign to")+'</label><select id="sgTaskAssign" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--dv);background:var(--bg);color:var(--tx);font-size:14px"></select></div><div style="margin-bottom:16px"><label class="fl">📅 '+(L==="ru"?"Дедлайн (необязательно)":"Deadline (optional)")+'</label><input type="date" id="sgTaskDl" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--dv);background:var(--bg);color:var(--tx);font-size:14px;box-sizing:border-box"></div><button class="btn" onclick="saveSharedTask()">'+(L==="ru"?"Добавить":"Add")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'addSharedTaskOv\')">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
 
+h+='<div class="po" id="customCatOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-size:18px;font-weight:700">'+(L==="ru"?"✨ Своя категория":"✨ Custom category")+'</span><button style="background:none;border:none;color:var(--hn);font-size:24px;cursor:pointer;padding:0;line-height:1" onclick="X(\'customCatOv\')">×</button></div><div style="margin-bottom:16px"><label class="fl">'+(L==="ru"?"Название":"Name")+'</label><input class="egg-in" id="ccNameIn" placeholder="'+(L==="ru"?"Моя категория":"My category")+'"></div><div style="margin-bottom:12px"><label class="fl">'+(L==="ru"?"Иконка":"Icon")+'</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px" id="ccIconGrid"></div></div><div style="margin-bottom:16px"><label class="fl">'+(L==="ru"?"Цвет":"Color")+'</label><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px" id="ccColorGrid"></div></div><button class="btn" onclick="saveCustomCat()">'+(L==="ru"?"Сохранить":"Save")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'customCatOv\')">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
 h+='<div class="rit-ov hidden" id="ritBlockOv"></div>';
 root.innerHTML=h;
 
@@ -687,9 +692,11 @@ var sgHzR=document.getElementById("sgHzR");if(sgHzR){HZ.forEach(function(hz){var
 // Build mood bars & chips
 function bMB(id,moods,val,cb){var c=document.getElementById(id);if(!c)return;moods.forEach(function(m,i){var b=document.createElement("button");b.className="mbt"+(i===val?" a":"");b.textContent=m;b.onclick=function(){cb(i);c.querySelectorAll(".mbt").forEach(function(x,j){x.className="mbt"+(j===i?" a":"")})};c.appendChild(b)})}
 bMB("wvisionM",MOODS,visMV,function(v){visMV=v});
-var catR=document.getElementById("catR");Object.keys(CATS).forEach(function(k){var b=document.createElement("button");b.className="cc"+(k===fCat?" a":"");b.dataset.k=k;b.textContent=ci(k)+" "+cn(k);b.onclick=function(){fCat=k;catR.querySelectorAll(".cc").forEach(function(x){x.classList.remove("a")});b.classList.add("a")};catR.appendChild(b)});
+rebuildCatR();
 var hzR=document.getElementById("hzR");HZ.forEach(function(hz){var b=document.createElement("button");b.className="cc"+(hz[0]===fHz?" a":"");b.dataset.k=hz[0];b.textContent=hz[r()];b.onclick=function(){fHz=hz[0];hzR.querySelectorAll(".cc").forEach(function(x){x.classList.remove("a")});b.classList.add("a")};hzR.appendChild(b)});
 
+var ccIconGrid=document.getElementById("ccIconGrid");if(ccIconGrid){["⭐","🌟","💫","🎯","💡","🎨","🏠","🌙","☀️","🦋","🚀","💰","🌿","❤️","✈️","🎓","💎","⚡","🔑","🎸"].forEach(function(ic){var b=document.createElement("button");b.className="cc";b.style.cssText="padding:6px 9px;font-size:18px";b.textContent=ic;b.onclick=function(){_ccIcon=ic;ccIconGrid.querySelectorAll("button").forEach(function(x){x.style.borderColor="var(--dv)"});b.style.borderColor="var(--lk)"};ccIconGrid.appendChild(b)})}
+var ccColorGrid=document.getElementById("ccColorGrid");if(ccColorGrid){["#2481cc","#22c55e","#f59e0b","#ef4444","#a855f7","#ec4899","#06b6d4","#64748b"].forEach(function(cl){var b=document.createElement("button");b.dataset.c=cl;b.style.cssText="width:34px;height:34px;border-radius:50%;background:"+cl+";border:2.5px solid transparent;cursor:pointer;flex-shrink:0";b.onclick=function(){_ccColor=cl;ccColorGrid.querySelectorAll("button").forEach(function(x){x.style.borderColor="transparent"});b.style.borderColor="var(--tx)"};ccColorGrid.appendChild(b)})}
 checkFreeze();render();checkRitual();
 }
 
@@ -766,6 +773,14 @@ document.getElementById("lkW").innerHTML=LEVELS.indexOf(lvl)<2?'<div class="lk" 
 
 // Challenge
 var chl=CH[L==="ru"?"r":"e"];
+var lvlIdx=LEVELS.indexOf(lvl);
+if(lvlIdx<1){
+document.getElementById("chTtl").textContent=L==="ru"?"🔥 Челлендж":"🔥 Challenge";
+document.getElementById("chDone").innerHTML="";
+document.getElementById("chProg").innerHTML='<div class="ci" style="text-align:center;padding:24px 16px"><div style="font-size:48px;margin-bottom:12px">🔒</div><div style="font-size:18px;font-weight:700;margin-bottom:8px">'+(L==="ru"?"Открывается на уровне Искатель":"Unlocks at Seeker level")+'</div><div style="font-size:14px;color:var(--hn);line-height:1.6;margin-bottom:16px">'+(L==="ru"?"21 день трансформации — ежедневные задания для прокачки визуализации и целей.\n\nДля перехода: 30 чек-инов, 15 записей, 7 дней стрика.":"21 days of transformation — daily tasks.\n\nTo reach Seeker: 30 check-ins, 15 entries, 7-day streak.")+'</div><button class="btg" onclick="document.getElementById(\'storeOv\').classList.add(\'open\')">'+(L==="ru"?"⚡ Быстрый путь":"⚡ Quick path")+'</button></div>';
+document.getElementById("chList").innerHTML="";
+document.getElementById("lkCh").innerHTML="";
+}else{
 document.getElementById("chTtl").textContent=rd>1?(L==="ru"?"Раунд ":"Round ")+rd+" 🔥":(L==="ru"?"21 день 🔥":"21 days 🔥");
 var c21=cd>=21&&dayR===0;
 document.getElementById("chDone").innerHTML=c21?'<div class="cd"><div style="text-align:center;padding:32px 20px"><div style="font-size:64px;margin-bottom:16px">🎉</div><div style="font-size:24px;font-weight:700;margin-bottom:8px">'+(L==="ru"?"Раунд пройден!":"Round complete!")+'</div><button class="btn" onclick="startNR()" style="max-width:280px;margin:0 auto">'+(L==="ru"?"Раунд ":"Round ")+(rd+1)+'</button><button class="btg" onclick="shareP()" style="max-width:280px;margin:8px auto 0">'+(L==="ru"?"Поделиться":"Share")+'</button></div></div>':"";
@@ -776,6 +791,7 @@ if(isFut){chH+='<div class="chd" style="opacity:.4"><div class="chn">🔒</div><
 chH+='<div class="chd"><div class="chn'+(isDone?" done":"")+(isCur?" cur":"")+'">'+( isDone?"✓":i+1)+'</div><div style="flex:1"><div style="font-size:14px;font-weight:500">'+(L==="ru"?"День ":"Day ")+(i+1)+": "+chl[i][0]+'</div><div style="font-size:13px;color:var(--hn);margin-top:2px">'+chl[i][1]+(i===0?'<span style="font-size:7px;opacity:.12;user-select:text;margin-left:4px">'+(L==="ru"?"прямо сейчас":"right now")+"</span>":"")+"</div>"+(isCur&&!todayChDone?'<button class="btn" style="margin-top:8px;padding:10px" onclick="compChD()">'+(L==="ru"?"Выполнить ✓":"Complete ✓")+"</button>":isCur&&todayChDone?'<div style="margin-top:8px;font-size:14px;color:var(--lk);font-weight:600">✅ '+(L==="ru"?"День выполнен. Возвращайся завтра 🌙":"Day complete. Come back tomorrow 🌙")+"</div>":"")+"</div></div>"}
 document.getElementById("chList").innerHTML=chH;
 document.getElementById("lkCh").innerHTML=maxV<21?'<div class="lk"><div style="font-size:32px;margin-bottom:8px">🔮</div><div style="font-size:15px;font-weight:600">'+(L==="ru"?"День "+(maxV+1)+"-21 скрыт":"Day "+(maxV+1)+"-21 hidden")+'</div><div style="font-size:13px;color:var(--hn)">'+(L==="ru"?"Повышай уровень":"Level up")+'</div></div>':"";
+}
 
 // Stats
 document.getElementById("bigS").textContent=s;
@@ -802,7 +818,7 @@ document.getElementById("shareCd").innerHTML='<div style="margin:0 16px 8px;bord
 var lsH="";
 if(LEVELS.indexOf(lvl)>=2){var catC={};D.goals.forEach(function(g){catC[g.cat]=(catC[g.cat]||0)+1});var mxC=Math.max.apply(null,Object.values(catC).concat([1]));var catB="";Object.keys(CATS).forEach(function(k){var c=catC[k]||0;catB+='<div class="bari"><div class="barv">'+c+'</div><div class="bar" style="height:'+Math.max(c/mxC*100,5)+'%"></div><div class="barl">'+ci(k)+"</div></div>"});
 lsH+='<p class="st">'+(L==="ru"?"Аналитика":"Analytics")+'</p><div class="cd"><div class="ci"><div class="barc">'+catB+'</div></div></div>'}
-else{lsH+='<div class="lk"><div style="font-size:32px;margin-bottom:8px">✨</div><div style="font-size:15px;font-weight:600">'+(L==="ru"?"Аналитика скрыта":"Analytics hidden")+'</div><div style="font-size:13px;color:var(--hn)">'+(L==="ru"?"Уровень CREATOR":"CREATOR level")+'</div></div>'}
+else{lsH+='<div class="lk" style="cursor:pointer" onclick="document.getElementById(\'storeOv\').classList.add(\'open\')"><div style="font-size:32px;margin-bottom:8px">🔒</div><div style="font-size:15px;font-weight:600">'+(L==="ru"?"Аналитика целей":"Goal analytics")+'</div><div style="font-size:13px;color:var(--hn);margin-top:4px">'+(L==="ru"?"Открывается на уровне CREATOR":"Unlocks at CREATOR level")+'</div></div>'}
 lsH+='<div class="lk" onclick="document.getElementById(\'storeOv\').classList.add(\'open\')"><div style="font-size:32px;margin-bottom:8px">🤖</div><div style="font-size:15px;font-weight:600">AI</div><div style="font-size:13px;color:var(--hn)">'+(L==="ru"?"Скоро":"Coming soon")+'</div></div>';
 document.getElementById("lkS").innerHTML=lsH;
 }

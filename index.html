@@ -645,7 +645,7 @@ function renderThemeStore(){
     th+='<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">';
     if(isActive){th+='<span style="font-size:20px;color:var(--lk)">✓</span>';}
     else if(isOwned){th+='<button class="btn" style="width:auto;padding:8px 14px;font-size:13px" onclick="activateTheme(\''+t.id+'\')">'+(L==="ru"?"Выбрать":"Select")+'</button>';}
-    else if(!t.free&&isVis&&!D.freeThemeUsed){
+    else if(!t.free&&isVis&&!D.freeThemeUsed&&owned.indexOf(t.id)<0){
       th+='<button class="btn" style="width:auto;padding:8px 14px;font-size:13px;background:var(--gd);color:#fff" onclick="claimFreeTheme(\''+t.id+'\')">'+(L==="ru"?"Бесплатно 🎁":"Free 🎁")+'</button>';
       th+='<button class="btg" style="width:auto;padding:5px 10px;font-size:11px" onclick="TG.openTelegramLink(\'https://t.me/IAM_app_bot?start=buy_theme_'+t.id+'\')">⭐ '+t.stars+'</button>';
     }else if(!t.free){

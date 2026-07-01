@@ -194,8 +194,57 @@ document.getElementById("ritBody").innerHTML=items.map(function(s,i){var d=done[
 document.getElementById("ritOv").classList.add("open")}
 function markRit(rK,s){if(!D.ritualDone[rK])D.ritualDone[rK]={};D.ritualDone[rK][s]=true;save();hap()}
 function shareP(){D.shares=(D.shares||0)+1;save();var s=streak(D.checkins),en=te(),lvl=calcLvl();var text="🔥 IAM\n🎯 "+D.goals.length+" "+(L==="ru"?"целей":"goals")+"\n✍️ "+en+" "+(L==="ru"?"записей":"entries")+"\n🔥 "+s+" "+(L==="ru"?"дней":"days")+"\n"+ln(lvl)+"\n#IAMdiary";try{var cv=document.createElement("canvas");cv.width=600;cv.height=400;var ctx=cv.getContext("2d");var g=ctx.createLinearGradient(0,0,600,400);g.addColorStop(0,"#f59e0b");g.addColorStop(1,"#d97706");ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(0,0,600,400,20);ctx.fill();ctx.fillStyle="#fff";ctx.font="bold 72px sans-serif";ctx.textAlign="center";ctx.fillText(s,300,110);ctx.font="18px sans-serif";ctx.globalAlpha=.85;ctx.fillText(L==="ru"?"дней трансформации":"days of transformation",300,145);ctx.globalAlpha=1;ctx.font="bold 36px sans-serif";ctx.fillText(D.goals.length,150,225);ctx.fillText(en,300,225);ctx.fillText(((D.chDay||0)%21)+"/21",450,225);ctx.font="14px sans-serif";ctx.globalAlpha=.7;ctx.fillText(L==="ru"?"целей":"goals",150,253);ctx.fillText(L==="ru"?"записей":"entries",300,253);ctx.fillText(L==="ru"?"челлендж":"challenge",450,253);ctx.globalAlpha=1;ctx.font="bold 20px sans-serif";ctx.fillText(ln(lvl),300,310);ctx.font="bold 24px sans-serif";ctx.fillText("IAM",300,355);cv.toBlob(function(b){try{navigator.share({text:text,files:[new File([b],"iam.png",{type:"image/png"})]})}catch(e){navigator.clipboard.writeText(text);alert("OK")}},"image/png")}catch(e){navigator.clipboard.writeText(text);alert("OK")}}
-function shareRef(){D.shares=(D.shares||0)+1;save();var t=L==="ru"?"Попробуй IAM — дневник целей!\nt.me/iam_diary_bot\nОба получим +5 целей 🎁":"Try IAM — goal diary!\nt.me/iam_diary_bot\nBoth get +5 goals 🎁";try{navigator.share({text:t})}catch(e){navigator.clipboard.writeText(t);alert("OK")}}
+function shareRef(){D.shares=(D.shares||0)+1;save();var t=L==="ru"?"Попробуй IAM — дневник целей!\nt.me/IAM_app_bot\nОба получим +5 целей 🎁":"Try IAM — goal diary!\nt.me/IAM_app_bot\nBoth get +5 goals 🎁";try{navigator.share({text:t})}catch(e){navigator.clipboard.writeText(t);alert("OK")}}
 function buyQuick(lvl){D.quickLvl=lvl;var exp=new Date();exp.setDate(exp.getDate()+30);D.quickExp=exp.toISOString().slice(0,10);save();X("storeOv");hap("heavy");render()}
+
+// ====== SHARED GOALS ======
+var _lastSharedId=null;
+function openSharedDetail(goalId){
+  _lastSharedId=goalId;
+  if(!sbCl||!TG_UID){try{TG.showAlert(L==="ru"?"Открой в Telegram":"Open in Telegram")}catch(e){alert("Open in Telegram")};return}
+  var ov=document.getElementById("sharedOv");
+  var body=document.getElementById("sharedBody");
+  if(!ov||!body)return;
+  body.innerHTML='<div style="text-align:center;padding:40px;color:var(--hn)">'+(L==="ru"?"Загрузка...":"Loading...")+'</div>';
+  ov.classList.add("open");
+  sbCl.from("shared_goals").select("*").eq("id",goalId).then(function(gr){
+    if(!gr.data||!gr.data.length){body.innerHTML='<div style="text-align:center;padding:40px;color:var(--hn)">'+(L==="ru"?"Цель не найдена":"Goal not found")+'</div>';return}
+    var g=gr.data[0];
+    sbCl.from("shared_tasks").select("*").eq("goal_id",goalId).order("id").then(function(tr){
+      var tasks=tr.data||[];
+      sbCl.from("shared_members").select("*").eq("goal_id",goalId).eq("status","active").then(function(mr){
+        var members=mr.data||[];
+        var h='<div class="cd"><div class="ci"><div style="font-size:20px;font-weight:700;margin-bottom:8px">🎯 '+esc(g.title)+'</div>';
+        if(g.deadline)h+='<div style="font-size:12px;color:var(--hn);margin-bottom:8px">📅 '+(L==="ru"?"До ":"Until ")+g.deadline+'</div>';
+        h+='<div style="font-size:13px;color:var(--hn)">'+(L==="ru"?"Участников: ":"Members: ")+members.length+'</div></div></div>';
+        h+='<div class="cd"><div class="ci"><div style="font-size:15px;font-weight:600;margin-bottom:8px">'+(L==="ru"?"Задачи":"Tasks")+'</div>';
+        if(!tasks.length){h+='<div style="font-size:13px;color:var(--hn);margin-bottom:12px">'+(L==="ru"?"Задач пока нет":"No tasks yet")+'</div>'}
+        else{tasks.forEach(function(t){h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--b1);cursor:pointer" onclick="toggleSharedTask('+t.id+','+!!t.done+','+goalId+')">';h+='<span style="font-size:18px">'+(t.done?'✅':'⬜')+'</span>';h+='<span style="font-size:14px;'+(t.done?'text-decoration:line-through;color:var(--hn)':'')+'">'+(t.username||'')+(t.username?' · ':'')+esc(t.text)+'</span></div>'})}
+        h+='<div style="margin-top:12px;display:flex;gap:8px"><input class="fi" id="sharedTaskIn" placeholder="'+(L==="ru"?"Новая задача...":"New task...")+'"><button class="btn" style="width:auto;padding:10px 16px" onclick="addSharedTask('+goalId+')">'+(L==="ru"?"Добавить":"Add")+'</button></div></div></div>';
+        h+='<div class="cd"><div class="ci"><div style="font-size:15px;font-weight:600;margin-bottom:8px">'+(L==="ru"?"Участники":"Members")+'</div>';
+        members.forEach(function(m){h+='<div style="font-size:13px;padding:4px 0">'+(m.username?'@'+m.username:'👤')+(m.role==='owner'?' 👑':'')+'</div>'});
+        h+='</div></div>';
+        body.innerHTML=h;
+      });
+    });
+  });
+}
+function addSharedTask(goalId){
+  var inp=document.getElementById("sharedTaskIn");
+  if(!inp||!inp.value.trim())return;
+  var text=inp.value.trim();
+  if(!sbCl||!TG_UID)return;
+  var uname="";try{uname=TG.initDataUnsafe.user.username||""}catch(e){}
+  sbCl.from("shared_tasks").insert({goal_id:goalId,user_id:TG_UID,text:text,done:false,username:uname}).then(function(){
+    openSharedDetail(goalId);
+  });
+}
+function toggleSharedTask(taskId,isDone,goalId){
+  if(!sbCl||!TG_UID)return;
+  sbCl.from("shared_tasks").update({done:!isDone,done_at:isDone?null:new Date().toISOString()}).eq("id",taskId).then(function(){
+    openSharedDetail(goalId);
+  });
+}
 function checkFreeze(){var m=missed();if(m>0&&D.checkins&&D.checkins.length>2){var price=99+50*(m-1);var fl=lim().frz;fl=Math.max(0,fl-(D.frzUsed||0));document.getElementById("frzInfo").innerHTML=(L==="ru"?"Пропущено: <strong>"+m+"</strong> дн.":"Missed: <strong>"+m+"</strong> days");document.getElementById("frzBtn").textContent=fl>0?(L==="ru"?"Бесплатно ("+fl+" ост.)":"Free ("+fl+" left)"):(L==="ru"?"Сохранить за "+price+"₽":"Save for "+price+"₽");document.getElementById("frzOv").classList.add("open")}}
 
 // ====== SHARED GOALS ======
@@ -604,6 +653,9 @@ h+='<div class="po" id="donateOv" onclick="this.classList.remove(\'open\')"><div
 [50,150,500].forEach(function(a){h+='<button class="btg" style="margin-bottom:8px" onclick="document.getElementById(\'donateAmt\').value='+a+'">⭐ '+a+'</button>'});
 h+='<button class="btn" style="margin-top:8px" onclick="alert(\'Telegram Stars coming soon!\');X(\'donateOv\')">'+(L==="ru"?"Отправить":"Send")+'</button><button class="btg" onclick="X(\'donateOv\')" style="margin-top:8px">'+(L==="ru"?"Закрыть":"Close")+'</button></div></div></div>';
 
+// SHARED GOAL OVERLAY
+h+='<div class="po" id="sharedOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:16px">👥 '+(L==="ru"?"Совместная цель":"Shared goal")+'</div><div id="sharedBody"></div><button class="btg" onclick="X(\'sharedOv\')" style="margin-top:12px">'+(L==="ru"?"Закрыть":"Close")+'</button></div></div>';
+
 // REMIND SHEET
 h+='<div class="po" id="remindSh" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:8px">🔔 '+(L==="ru"?"Напоминание о цели":"Goal reminder")+'</div><div id="remindGoalTxt" style="font-size:13px;color:var(--hn);text-align:center;margin-bottom:16px;line-height:1.4"></div><div style="margin-bottom:16px"><label class="fl">'+(L==="ru"?"Время":"Time")+'</label><input type="time" id="remindTime" class="fi" value="09:00" style="font-size:20px"></div><div style="margin-bottom:20px"><label class="fl">'+(L==="ru"?"Частота":"Frequency")+'</label><div class="cr" id="remindFreqR"></div></div><button class="btn" onclick="saveRemind()">'+(L==="ru"?"Сохранить 🔔":"Save 🔔")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'remindSh\')">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
 
@@ -755,7 +807,10 @@ document.getElementById("lkS").innerHTML=lsH;
 }
 
 // ====== INIT ======
-(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}if(!D.onboarded)showOnb();else build();})();
+var _pendingSharedId=null;
+try{var _sp=TG&&TG.initDataUnsafe&&TG.initDataUnsafe.start_param;if(_sp&&_sp.startsWith("shared_"))_pendingSharedId=_sp.slice(7)}catch(e){}
+if(!_pendingSharedId){try{var _hash=window.location.hash;if(_hash&&_hash.startsWith("#shared_"))_pendingSharedId=_hash.slice(8)}catch(e){}}
+(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}if(!D.onboarded)showOnb();else{build();if(_pendingSharedId){openSharedDetail(_pendingSharedId);_pendingSharedId=null;}}})();
 </script>
 </body>
 </html>

@@ -94,6 +94,9 @@ var BADGES=[["🌱","Первый шаг","First step",function(){return D.goals
 var THEMES={classic:{},kosmos:{"--bg":"#0d0d1a","--tx":"#e2e2ff","--hn":"#7878bb","--lk":"#8b5cf6","--bt":"#8b5cf6","--btx":"#ffffff","--sc":"#12122a","--dv":"rgba(139,92,246,.18)","--gd":"#a78bfa","--gb":"rgba(167,139,250,.08)"},lux:{"--bg":"#0a0a0a","--tx":"#f5f5ee","--hn":"#88887c","--lk":"#d4af37","--bt":"#d4af37","--btx":"#0a0a0a","--sc":"#141414","--dv":"rgba(212,175,55,.14)","--gd":"#d4af37","--gb":"rgba(212,175,55,.06)"},minimal:{"--bg":"#f8f9fa","--tx":"#1a1a2e","--hn":"#9ca3af","--lk":"#059669","--bt":"#059669","--btx":"#ffffff","--sc":"#ffffff","--dv":"rgba(0,0,0,.06)","--gd":"#059669","--gb":"rgba(5,150,105,.06)"}};
 var QUICK_PRICES={SEEKER:499,CREATOR:999,VISIONARY:1999};
 var LVL_STAR={SEEKER:250,CREATOR:499,VISIONARY:999};
+var STOPWORDS=["хуй","хуе","хуя","хуё","пизд","бляд","ёбан","еban","ебат","ебал","ебан","залуп","мудак","мудил","гандон","пидор","пидар","муда","сука","fuck","shit","bitch","cunt","asshole","dick","nigger","porn","xxx","http://","https://","t.me/","@","www."];
+var _rc={podRank:0,duelWon:false,legendMonths:0};
+var _myRating=null;
 
 // ====== HELPERS ======
 function r(k){return L==="ru"?1:2}
@@ -133,7 +136,7 @@ function onbGoal(t){if(!t.trim())return;D.goals.push({id:Date.now(),text:t.trim(
 function onbEnd(){D.onboarded=true;save();location.reload()}
 
 // ====== ACTIONS ======
-function go(id){document.querySelectorAll(".pg").forEach(function(p){p.classList.remove("a")});document.getElementById("p-"+id).classList.add("a");document.querySelectorAll(".ni").forEach(function(n,i){n.classList.remove("a")});var idx={home:0,goals:1,shared:2,write:3,challenge:4,stats:5};document.querySelectorAll(".ni")[idx[id]].classList.add("a");if(id==="goals"){D.goalsRead=td();save()}if(id==="shared")loadShared();render()}
+function go(id){document.querySelectorAll(".pg").forEach(function(p){p.classList.remove("a")});document.getElementById("p-"+id).classList.add("a");document.querySelectorAll(".ni").forEach(function(n,i){n.classList.remove("a")});var idx={home:0,goals:1,shared:2,write:3,challenge:4,stats:5,rating:6};document.querySelectorAll(".ni")[idx[id]].classList.add("a");if(id==="goals"){D.goalsRead=td();save()}if(id==="shared")loadShared();if(id==="rating")loadRating();render()}
 var editGoalId=null;
 var editParentId=null;
 function editG(id){
@@ -152,7 +155,7 @@ function editG(id){
 function openGF(){var l=lim(),mx=l.gpc*5+(D.extraGoals||0);if(D.goals.length>=mx){document.getElementById("packOv").classList.add("open");return}editParentId=null;var ttl=document.querySelector("#gForm .ftl");if(ttl)ttl.textContent=L==="ru"?"Цель":"Goal";document.getElementById("gForm").classList.add("open")}
 function openSubGF(parentId){var l=lim(),mx=l.gpc*5+(D.extraGoals||0);if(D.goals.length>=mx){document.getElementById("packOv").classList.add("open");return}editParentId=parentId;editGoalId=null;document.getElementById("gfT").value="";document.getElementById("gfDeadline").value="";var ttl=document.querySelector("#gForm .ftl");if(ttl)ttl.textContent=L==="ru"?"Подцель":"Subtask";document.getElementById("gForm").classList.add("open")}
 function saveGoal(){var t=document.getElementById("gfT").value.trim();if(!t)return;var dl=document.getElementById("gfDeadline").value||null;if(editGoalId){D.goals=D.goals.map(function(g){return g.id===editGoalId?{id:g.id,text:t,cat:fCat,hz:fHz,deadline:dl,done:g.done,parentId:g.parentId}:g});editGoalId=null;}else if(editParentId){var _par=D.goals.find(function(g){return g.id===editParentId});D.goals.push({id:Date.now(),text:t,cat:_par?_par.cat:fCat,hz:_par?_par.hz:fHz,deadline:dl,done:false,parentId:editParentId});editParentId=null;}else{D.goals.push({id:Date.now(),text:t,cat:fCat,hz:fHz,deadline:dl,done:false});}save();document.getElementById("gfT").value="";document.getElementById("gfDeadline").value="";X("gForm");hap();render()}
-function tglG(id){var tog=D.goals.find(function(g){return g.id===id});if(!tog)return;tog.done=!tog.done;if(tog.done&&TG_UID){console.log('deleting reminder for:',tog.text.trim(),'uid:',TG_UID);fetch(SB_URL+'/rest/v1/reminders?user_id=eq.'+TG_UID+'&goal_text=eq.'+encodeURIComponent(tog.text.trim()),{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}}).then(function(r){console.log('reminder delete status:',r.status);return r.text()}).then(function(t){console.log('reminder delete body:',t)}).catch(function(e){console.error('reminder delete error:',e)});}if(tog.parentId){var sibs=D.goals.filter(function(g){return g.parentId===tog.parentId});if(sibs.every(function(g){return g.done})){var par=D.goals.find(function(g){return g.id===tog.parentId});if(par&&!par.done){par.done=true;if(TG_UID){console.log('deleting reminder for:',par.text.trim(),'uid:',TG_UID);fetch(SB_URL+'/rest/v1/reminders?user_id=eq.'+TG_UID+'&goal_text=eq.'+encodeURIComponent(par.text.trim()),{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}}).then(function(r){console.log('reminder delete parent status:',r.status);return r.text()}).then(function(t){console.log('reminder delete parent body:',t)}).catch(function(e){console.error('reminder delete parent error:',e)});}}}}save();hap();render();}
+function tglG(id){var tog=D.goals.find(function(g){return g.id===id});if(!tog)return;tog.done=!tog.done;if(tog.done&&TG_UID){console.log('deleting reminder for:',tog.text.trim(),'uid:',TG_UID);fetch(SB_URL+'/rest/v1/reminders?user_id=eq.'+TG_UID+'&goal_text=eq.'+encodeURIComponent(tog.text.trim()),{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}}).then(function(r){console.log('reminder delete status:',r.status);return r.text()}).then(function(t){console.log('reminder delete body:',t)}).catch(function(e){console.error('reminder delete error:',e)});}if(tog.done)addWeeklyPoints(tog.parentId?5:15);if(tog.parentId){var sibs=D.goals.filter(function(g){return g.parentId===tog.parentId});if(sibs.every(function(g){return g.done})){var par=D.goals.find(function(g){return g.id===tog.parentId});if(par&&!par.done){par.done=true;addWeeklyPoints(15);if(TG_UID){console.log('deleting reminder for:',par.text.trim(),'uid:',TG_UID);fetch(SB_URL+'/rest/v1/reminders?user_id=eq.'+TG_UID+'&goal_text=eq.'+encodeURIComponent(par.text.trim()),{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}}).then(function(r){console.log('reminder delete parent status:',r.status);return r.text()}).then(function(t){console.log('reminder delete parent body:',t)}).catch(function(e){console.error('reminder delete parent error:',e)});}}}}save();hap();render();}
 function delG(id){D.goals=D.goals.filter(function(g){return g.id!==id&&g.parentId!==id});save();render()}
 function setGoalsView(m){D.goalsViewMode=m;save();render()}
 function toggleCatGroup(key){if(!D.catCollapsed)D.catCollapsed={};D.catCollapsed[key]=!D.catCollapsed[key];save();render()}
@@ -194,8 +197,8 @@ function buyPack(n){D.extraGoals=(D.extraGoals||0)+n;save();X("packOv");hap();re
 function showCardSoon(){try{TG.showAlert("Оплата картой скоро! Пока доступны Telegram Stars ⭐")}catch(e){alert("Оплата картой скоро! Пока доступны Telegram Stars ⭐")}}
 function openTmpl(){var h="";Object.keys(CATS).forEach(function(k){var t=TMPLS[k][L==="ru"?"r":"e"];h+='<p class="st">'+ci(k)+" "+cn(k)+'</p><div class="cd">'+t.map(function(x){return'<button class="tmpl" onclick="useTmpl(\''+k+'\',this.textContent)">'+esc(x)+"</button>"}).join("")+"</div>"});document.getElementById("tmplList").innerHTML=h;document.getElementById("tmplOv").classList.add("open")}
 function useTmpl(cat,t){fCat=cat;document.getElementById("gfT").value=t;X("tmplOv");document.getElementById("gForm").classList.add("open")}
-function compChD(){var day=(D.chDay||0)%21,l=lim();if(day>=l.ch){alert(L==="ru"?"Повышай уровень для продолжения!":"Level up to continue!");return}if(D.chLastDate===td()){try{TG.showAlert(L==="ru"?"✅ День выполнен. Возвращайся завтра 🌙":"✅ Day complete. Come back tomorrow 🌙")}catch(e){alert(L==="ru"?"✅ День выполнен. Возвращайся завтра 🌙":"✅ Day complete. Come back tomorrow 🌙")}return}var c=CH[L==="ru"?"r":"e"];if(CHA[day]==="stats"||CHA[day]==="goals"){D.chDay=(D.chDay||0)+1;D.chLastDate=td();save();hap();if(CHA[day]==="goals")openGF();render();return}document.getElementById("chFT").textContent=(L==="ru"?"День ":"Day ")+(day+1)+": "+c[day][0];document.getElementById("chFD").textContent=c[day][1];document.getElementById("chFTxt").value="";document.getElementById("chFA").value=CHA[day];document.getElementById("chFOv").classList.add("open")}
-function saveChD(){var type=document.getElementById("chFA").value,t=document.getElementById("chFTxt").value.trim();if(!t)return;var e={id:Date.now(),text:t,date:td()};if(type==="vision"){if(!D.vis)D.vis=[];e.mood=visMV;D.vis.unshift(e)}else{if(!D.grat)D.grat=[];D.grat.unshift(e)}D.chDay=(D.chDay||0)+1;D.chLastDate=td();save();X("chFOv");hap("medium");render()}
+function compChD(){var day=(D.chDay||0)%21,l=lim();if(day>=l.ch){alert(L==="ru"?"Повышай уровень для продолжения!":"Level up to continue!");return}if(D.chLastDate===td()){try{TG.showAlert(L==="ru"?"✅ День выполнен. Возвращайся завтра 🌙":"✅ Day complete. Come back tomorrow 🌙")}catch(e){alert(L==="ru"?"✅ День выполнен. Возвращайся завтра 🌙":"✅ Day complete. Come back tomorrow 🌙")}return}var c=CH[L==="ru"?"r":"e"];if(CHA[day]==="stats"||CHA[day]==="goals"){D.chDay=(D.chDay||0)+1;D.chLastDate=td();save();addWeeklyPoints(20);hap();if(CHA[day]==="goals")openGF();render();return}document.getElementById("chFT").textContent=(L==="ru"?"День ":"Day ")+(day+1)+": "+c[day][0];document.getElementById("chFD").textContent=c[day][1];document.getElementById("chFTxt").value="";document.getElementById("chFA").value=CHA[day];document.getElementById("chFOv").classList.add("open")}
+function saveChD(){var type=document.getElementById("chFA").value,t=document.getElementById("chFTxt").value.trim();if(!t)return;var e={id:Date.now(),text:t,date:td()};if(type==="vision"){if(!D.vis)D.vis=[];e.mood=visMV;D.vis.unshift(e)}else{if(!D.grat)D.grat=[];D.grat.unshift(e)}D.chDay=(D.chDay||0)+1;D.chLastDate=td();save();addWeeklyPoints(20);X("chFOv");hap("medium");render()}
 function startNR(){D.chRound=(D.chRound||1)+1;save();hap("heavy");render()}
 function checkEgg(){var inp=document.getElementById("eggIn");if(!inp)return;var phrase=inp.value.trim().toLowerCase();for(var i=0;i<EGGS.length;i++){var eg=EGGS[i];var frags=L==="ru"?eg.p:eg.e;var full=frags.join(" ");if(phrase===full&&(D.eggsFound||[]).indexOf(i)<0){if(!D.eggsFound)D.eggsFound=[];D.eggsFound.push(i);if(eg.t==="goals")D.extraGoals=(D.extraGoals||0)+eg.r;save();hap("heavy");alert((L==="ru"?"🎉 Пасхалка найдена! +":"🎉 Easter egg! +")+eg.r+" "+(eg.t==="goals"?(L==="ru"?"целей":"goals"):(L==="ru"?"заморозок":"freezes")));inp.value="";render();return}for(var j=0;j<frags.length;j++){if(phrase===frags[j]){if(!D.fragments)D.fragments={};var key=i+"_"+j;if(!D.fragments[key]){D.fragments[key]=true;save();hap();alert((L==="ru"?"✨ Фрагмент найден! ":"✨ Fragment found! ")+(j+1)+"/3");inp.value="";render();return}}}}alert(L==="ru"?"Не та фраза. Ищи в контенте!":"Wrong phrase. Check our content!");inp.value=""}
 function confirmWis(){var inp=document.getElementById("wisIn");if(!inp||!inp.value.trim())return;D.wisdomDone[td()]=true;save();hap();render()}
@@ -253,7 +256,8 @@ function _lvlEmblem(ctx,level,p,cx,cy){
   ctx.restore();
 }
 function drawShareCard(level,theme){
-  var W=600,H=600,cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  var badges=getShareBadges();
+  var W=600,extra=badges.length?(badges.length*20+16):0,H=600+extra,cv=document.createElement('canvas');cv.width=W;cv.height=H;
   var ctx=cv.getContext('2d');
   var PAL={classic:{bg:'#ffffff',sc:'#f0f4ff',tx:'#1e293b',ac:'#6366f1',ac2:'#818cf8',hn:'#94a3b8'},kosmos:{bg:'#080818',sc:'#0f0f28',tx:'#e2e2ff',ac:'#8b5cf6',ac2:'#c4b5fd',hn:'#7878bb'},lux:{bg:'#090909',sc:'#181818',tx:'#f5f5ee',ac:'#d4af37',ac2:'#f0d060',hn:'#888878'},minimal:{bg:'#f5f7f5',sc:'#ffffff',tx:'#1a1a2e',ac:'#059669',ac2:'#34d399',hn:'#6b7280'}};
   var p=PAL[theme]||PAL.classic;
@@ -274,9 +278,11 @@ function drawShareCard(level,theme){
   ctx.strokeStyle=p.hn;ctx.lineWidth=1;ctx.globalAlpha=0.22;ctx.beginPath();ctx.moveTo(W/2,392);ctx.lineTo(W/2,478);ctx.stroke();ctx.globalAlpha=1;
   ctx.fillStyle=p.ac;ctx.font='bold 33px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillText('🎯 '+dG,W*3/4-14,422);
   ctx.font='12px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillStyle=p.hn;ctx.fillText(L==='ru'?'целей достигнуто':'goals done',W*3/4-14,450);
+  if(badges.length){var by=502;ctx.textAlign='center';ctx.font='600 14px -apple-system,BlinkMacSystemFont,sans-serif';badges.forEach(function(b){ctx.fillStyle=p.ac;ctx.fillText(b,W/2,by);by+=20});}
   var uid2=TG_UID||'';var refUrl='t.me/IAM_app_bot'+(uid2?'?start=ref_'+uid2:'');
-  ctx.textAlign='center';ctx.fillStyle=p.ac;ctx.font='bold 15px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillText(L==='ru'?'Присоединяйся к IAM 🎯':'Join IAM 🎯',W/2,522);
-  ctx.fillStyle=p.hn;ctx.font='11px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillText(refUrl,W/2,548);
+  var footY=522+extra;
+  ctx.textAlign='center';ctx.fillStyle=p.ac;ctx.font='bold 15px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillText(L==='ru'?'Присоединяйся к IAM 🎯':'Join IAM 🎯',W/2,footY);
+  ctx.fillStyle=p.hn;ctx.font='11px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillText(refUrl,W/2,footY+26);
   ctx.strokeStyle=p.ac;ctx.lineWidth=2;ctx.globalAlpha=0.18;ctx.strokeRect(1,1,W-2,H-2);ctx.globalAlpha=1;
   return cv;
 }
@@ -532,7 +538,7 @@ async function toggleSharedTask(taskId,goalId){
 }
 
 async function addSgReaction(taskId,reaction){
-  try{await sbCl.from('shared_reactions').insert({task_id:taskId,user_id:TG_UID,reaction:reaction});hap('light');}catch(e){}
+  try{await sbCl.from('shared_reactions').insert({task_id:taskId,user_id:TG_UID,reaction:reaction});hap('light');addWeeklyPoints(2);}catch(e){}
 }
 
 function openAddSharedTask(goalId){
@@ -569,6 +575,7 @@ async function sendEncouragement(toUserId,goalTitle){
     // Update stats
     var sRes=await sbCl.from('shared_stats').select('encouragements_sent').eq('user_id',TG_UID).single();
     if(sRes.data)await sbCl.from('shared_stats').update({encouragements_sent:(sRes.data.encouragements_sent||0)+1}).eq('user_id',TG_UID);
+    addWeeklyPoints(2);
     hap('medium');
     try{TG.showAlert(L==="ru"?"💪 Подбодрение отправлено!":"💪 Encouragement sent!")}catch(e){alert(L==="ru"?"Отправлено!":"Sent!")}
   }catch(e){}
@@ -703,12 +710,14 @@ function saveRitBlock(key){
   var e={id:Date.now(),text:txt.value.trim(),date:td()};
   if(key==="vision"||key==="combined"){if(!D.vis)D.vis=[];e.mood=visMV;D.vis.unshift(e)}else if(key==="grat"){if(!D.grat)D.grat=[];D.grat.unshift(e)}
   save();
+  if(key==="combined")addWeeklyPoints(5);
   advRitBlock();
 }
 function advRitBlock(){
   ritBlockStep++;
   if(ritBlockStep>=getRitSteps().length){
     localStorage.setItem(ritBlockKey,"1");
+    addWeeklyPoints(10);
     var el=document.getElementById("ritBlockOv");
     if(el)el.classList.add("hidden");
     render();
@@ -763,7 +772,7 @@ function rebuildCatR(){var catR=document.getElementById("catR");if(!catR)return;
 function build(){
 var root=document.getElementById("root");
 var h='<nav class="nav">';
-[{id:"home",i:"🏠",l:L==="ru"?"Главная":"Home"},{id:"goals",i:"🎯",l:L==="ru"?"Цели":"Goals"},{id:"shared",i:"👥",l:L==="ru"?"Команда":"Team"},{id:"write",i:"✍️",l:L==="ru"?"Записать":"Write"},{id:"challenge",i:"🔥",l:L==="ru"?"Челлендж":"Challenge"},{id:"stats",i:"📊",l:L==="ru"?"Прогресс":"Progress"}].forEach(function(n,i){h+='<button class="ni'+(i===0?" a":"")+'" onclick="go(\''+n.id+'\')"><span class="ni-i">'+n.i+'</span><span class="ni-l">'+n.l+"</span></button>"});
+[{id:"home",i:"🏠",l:L==="ru"?"Главная":"Home"},{id:"goals",i:"🎯",l:L==="ru"?"Цели":"Goals"},{id:"shared",i:"👥",l:L==="ru"?"Команда":"Team"},{id:"write",i:"✍️",l:L==="ru"?"Записать":"Write"},{id:"challenge",i:"🔥",l:L==="ru"?"Челлендж":"Challenge"},{id:"stats",i:"📊",l:L==="ru"?"Прогресс":"Progress"},{id:"rating",i:"🏆",l:L==="ru"?"Рейтинг":"Rating"}].forEach(function(n,i){h+='<button class="ni'+(i===0?" a":"")+'" onclick="go(\''+n.id+'\')"><span class="ni-i">'+n.i+'</span><span class="ni-l">'+n.l+"</span></button>"});
 h+='</nav>';
 
 // HOME
@@ -771,6 +780,9 @@ h+='<div class="pg a" id="p-home"><div class="ph"><div class="pt" id="greet"></d
 
 // GOALS
 h+='<div class="pg" id="p-goals"><div class="ph"><div class="pt">'+(L==="ru"?"Цели":"Goals")+'</div><div class="pd">'+(L==="ru"?"В настоящем времени":"Present tense")+'</div></div><div id="balBan"></div><div id="limInfo"></div><div id="goalsCounter"></div><div style="padding:0 16px;margin-top:4px"><button class="btn" onclick="openGF()">'+(L==="ru"?"Добавить цель":"Add goal")+'</button></div><div style="padding:0 16px;margin-top:8px"><button class="btg" onclick="openTmpl()">'+(L==="ru"?"Шаблоны":"Templates")+'</button></div><div id="goalsViewToggle" class="cr" style="padding:0 16px;margin-top:10px"></div><div id="goalsList"></div></div>';
+
+// GROWTH RATING
+h+='<div class="pg" id="p-rating"><div class="ph"><div class="pt">🏆 '+(L==="ru"?"Рейтинг роста":"Growth rating")+'</div><div class="pd">'+(L==="ru"?"Твой % роста за неделю":"Your weekly growth %")+'</div></div><div id="ratingBody"><div style="padding:32px;text-align:center;color:var(--hn)">'+(L==="ru"?"Загрузка...":"Loading...")+'</div></div></div>';
 
 // SHARED GOALS
 h+='<div class="pg" id="p-shared"><div class="ph"><div class="pt">'+(L==="ru"?"👥 Команда":"👥 Team")+'</div><div class="pd">'+(L==="ru"?"Совместные цели":"Shared goals")+'</div></div><div id="sharedDeadlineBanner"></div><div id="sharedList" style="min-height:80px"><div style="padding:32px;text-align:center;color:var(--hn)">'+(L==="ru"?"Загрузка...":"Loading...")+'</div></div><div style="padding:0 16px;margin-top:4px"><button class="btn" onclick="openCreateShared()">'+(L==="ru"?"Создать совместную цель":"Create shared goal")+'</button></div><div style="padding:0 16px;margin-top:8px"><button class="btg" onclick="openJoinShared()">'+(L==="ru"?"Присоединиться по коду":"Join by code")+'</button></div></div>';
@@ -850,6 +862,9 @@ h+='<div class="po" id="inviteSharedOv" onclick="this.classList.remove(\'open\')
 h+='<div class="po" id="addSharedTaskOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-size:18px;font-weight:700">'+(L==="ru"?"Новая задача":"New task")+'</span><button style="background:none;border:none;color:var(--hn);font-size:24px;cursor:pointer;padding:0;line-height:1" onclick="X(\'addSharedTaskOv\')">×</button></div><input type="hidden" id="addTaskGoalId"><div style="margin-bottom:12px"><input class="egg-in" id="sgTaskTxt" placeholder="'+(L==="ru"?"Текст задачи...":"Task text...")+'"></div><div style="margin-bottom:12px"><label class="fl">'+(L==="ru"?"Назначить":"Assign to")+'</label><select id="sgTaskAssign" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--dv);background:var(--bg);color:var(--tx);font-size:14px"></select></div><div style="margin-bottom:16px"><label class="fl">📅 '+(L==="ru"?"Дедлайн (необязательно)":"Deadline (optional)")+'</label><input type="date" id="sgTaskDl" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--dv);background:var(--bg);color:var(--tx);font-size:14px;box-sizing:border-box"></div><button class="btn" onclick="saveSharedTask()">'+(L==="ru"?"Добавить":"Add")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'addSharedTaskOv\')">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
 
 h+='<div class="po" id="customCatOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-size:18px;font-weight:700">'+(L==="ru"?"✨ Своя категория":"✨ Custom category")+'</span><button style="background:none;border:none;color:var(--hn);font-size:24px;cursor:pointer;padding:0;line-height:1" onclick="X(\'customCatOv\')">×</button></div><div style="margin-bottom:16px"><label class="fl">'+(L==="ru"?"Название":"Name")+'</label><input class="egg-in" id="ccNameIn" placeholder="'+(L==="ru"?"Моя категория":"My category")+'"></div><div style="margin-bottom:12px"><label class="fl">'+(L==="ru"?"Иконка":"Icon")+'</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px" id="ccIconGrid"></div></div><div style="margin-bottom:16px"><label class="fl">'+(L==="ru"?"Цвет":"Color")+'</label><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px" id="ccColorGrid"></div></div><button class="btn" onclick="saveCustomCat()">'+(L==="ru"?"Сохранить":"Save")+'</button><button class="btg" style="margin-top:8px" onclick="X(\'customCatOv\')">'+(L==="ru"?"Отмена":"Cancel")+'</button></div></div>';
+
+// DUELS
+h+='<div class="po" id="duelsOv" onclick="this.classList.remove(\'open\')"><div class="ps" onclick="event.stopPropagation()"><div class="psh"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:18px;font-weight:700">🗡 '+(L==="ru"?"Мои дуэли":"My duels")+'</span><button style="background:none;border:none;color:var(--hn);font-size:24px;cursor:pointer;padding:0;line-height:1" onclick="X(\'duelsOv\')">×</button></div><div id="duelsList"></div><button class="btg" style="margin-top:12px" onclick="X(\'duelsOv\')">'+(L==="ru"?"Закрыть":"Close")+'</button></div></div>';
 h+='<div class="rit-ov hidden" id="ritBlockOv"></div>';
 root.innerHTML=h;
 
@@ -1004,11 +1019,269 @@ requestAnimationFrame(function(){document.querySelectorAll('.catbar').forEach(fu
 renderThemeStore();
 }
 
+// ====== GROWTH RATING ======
+function weekStartISO(offsetWeeks){
+  offsetWeeks=offsetWeeks||0;
+  var now=new Date();
+  var utcDow=now.getUTCDay();
+  var diff=(utcDow+6)%7;
+  var m=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-diff+offsetWeeks*7));
+  return m.toISOString().slice(0,10);
+}
+async function addWeeklyPoints(delta){
+  if(!sbCl||!TG_UID)return;
+  try{
+    var ws=weekStartISO();
+    var cur=await sbCl.from('weekly_scores').select('points').eq('user_id',TG_UID).eq('week_start',ws).maybeSingle();
+    var pts=(cur.data&&cur.data.points)||0;
+    await sbCl.from('weekly_scores').upsert({user_id:TG_UID,week_start:ws,points:pts+delta},{onConflict:'user_id,week_start'});
+  }catch(e){}
+}
+function ratingName(userId,nick,showNick){
+  if(showNick&&nick)return esc(nick);
+  var s=String(userId);
+  return (L==="ru"?"Игрок #":"Player #")+s.slice(-4);
+}
+function checkNickname(name){
+  var n=name.trim();
+  if(n.length<3||n.length>16)return L==="ru"?"Ник должен быть от 3 до 16 символов":"Nickname must be 3-16 characters";
+  if(!/^[a-zA-Zа-яА-ЯёЁ0-9_ ]+$/.test(n))return L==="ru"?"Только буквы, цифры и _":"Letters, digits and _ only";
+  var low=n.toLowerCase();
+  for(var i=0;i<STOPWORDS.length;i++){if(low.indexOf(STOPWORDS[i])>=0)return L==="ru"?"Недопустимое слово в нике":"Inappropriate word in nickname";}
+  return null;
+}
+async function ensurePod(weekStart,myPoints){
+  try{
+    var mine=await sbCl.from('weekly_scores').select('pod_id').eq('user_id',TG_UID).eq('week_start',weekStart).maybeSingle();
+    if(mine.data&&mine.data.pod_id)return mine.data.pod_id;
+    var all=await sbCl.from('weekly_scores').select('pod_id').eq('week_start',weekStart).not('pod_id','is',null);
+    var counts={};(all.data||[]).forEach(function(row){if(row.pod_id)counts[row.pod_id]=(counts[row.pod_id]||0)+1});
+    var open=Object.keys(counts).filter(function(k){return counts[k]<25});
+    var podId;
+    if(open.length)podId=+open[Math.floor(Math.random()*open.length)];
+    else{var ids=Object.keys(counts).map(Number);podId=ids.length?Math.max.apply(null,ids)+1:1;}
+    await sbCl.from('weekly_scores').upsert({user_id:TG_UID,week_start:weekStart,points:myPoints,pod_id:podId},{onConflict:'user_id,week_start'});
+    return podId;
+  }catch(e){return null;}
+}
+async function loadRating(){
+  var el=document.getElementById('ratingBody');
+  if(!el)return;
+  if(!sbCl||!TG_UID){el.innerHTML='<div style="padding:32px;text-align:center;color:var(--hn)">'+(L==="ru"?"Открой через Telegram":"Open via Telegram")+'</div>';return;}
+  el.innerHTML='<div style="padding:32px;text-align:center;color:var(--hn)">'+(L==="ru"?"Загрузка...":"Loading...")+'</div>';
+  try{
+    var ws=weekStartISO(),wsPrev=weekStartISO(-1);
+    var myRes=await sbCl.from('weekly_scores').select('points,pod_id').eq('user_id',TG_UID).eq('week_start',ws).maybeSingle();
+    var myPts=(myRes.data&&myRes.data.points)||0;
+    var prevRes=await sbCl.from('weekly_scores').select('points').eq('user_id',TG_UID).eq('week_start',wsPrev).maybeSingle();
+    var prevPts=(prevRes.data&&prevRes.data.points)||0;
+    var buRes=await sbCl.from('bot_users').select('rating_nickname,rating_nickname_updated_at,show_nickname,legend_streak_months,legend_streak_best').eq('user_id',TG_UID).maybeSingle();
+    var bu=buRes.data||{};
+    _myRating=bu;
+    var h='';
+    if(myPts<15){
+      h+='<div class="cd"><div class="ci" style="text-align:center;padding:24px 16px"><div style="font-size:40px;margin-bottom:8px">🌱</div><div style="font-size:15px;font-weight:600;margin-bottom:6px">'+(L==="ru"?"Набери 15 баллов чтобы попасть в рейтинг":"Score 15 points to join the rating")+'</div><div style="font-size:13px;color:var(--hn)">'+myPts+'/15</div><div class="lvb" style="margin-top:10px"><div class="lvf" style="width:'+Math.min(100,myPts/15*100)+'%;background:var(--lk)"></div></div></div></div>';
+    }else{
+      var podId=await ensurePod(ws,myPts);
+      var growth=Math.round((myPts-prevPts)/Math.max(prevPts,20)*100);
+      var podMembers=[];
+      if(podId){
+        var podRes=await sbCl.from('weekly_scores').select('user_id,points').eq('week_start',ws).eq('pod_id',podId);
+        podMembers=podRes.data||[];
+      }
+      var ids=podMembers.map(function(m){return m.user_id});
+      var prevMap={};
+      if(ids.length){
+        var prevAll=await sbCl.from('weekly_scores').select('user_id,points').eq('week_start',wsPrev).in('user_id',ids);
+        (prevAll.data||[]).forEach(function(row){prevMap[row.user_id]=row.points});
+      }
+      var nickMap={};
+      if(ids.length){
+        var nickRes=await sbCl.from('bot_users').select('user_id,rating_nickname,show_nickname').in('user_id',ids);
+        (nickRes.data||[]).forEach(function(row){nickMap[row.user_id]=row});
+      }
+      var ranked=podMembers.map(function(m){
+        var pv=prevMap[m.user_id]||0;
+        var g=Math.round((m.points-pv)/Math.max(pv,20)*100);
+        return {user_id:m.user_id,points:m.points,growth:g};
+      }).sort(function(a,b){return b.growth-a.growth});
+      var myPos=ranked.findIndex(function(row){return row.user_id===TG_UID})+1;
+      h+='<div class="cd"><div class="ci" style="text-align:center;padding:20px 16px">';
+      h+='<div style="font-size:13px;color:var(--hn);margin-bottom:4px">'+(L==="ru"?"Твоя позиция в поде":"Your pod position")+'</div>';
+      h+='<div style="font-size:32px;font-weight:800;color:var(--lk)">#'+(myPos||'-')+'</div>';
+      h+='<div style="font-size:15px;font-weight:600;margin-top:6px;color:'+(growth>=0?'var(--lk)':'#ef4444')+'">'+(growth>=0?'▲ +':'▼ ')+growth+'%</div>';
+      h+='<div style="font-size:12px;color:var(--hn);margin-top:4px">'+myPts+' '+(L==="ru"?"баллов на этой неделе":"points this week")+'</div>';
+      h+='</div></div>';
+      h+='<p class="st">'+(L==="ru"?"Топ-5 пода":"Pod top-5")+'</p><div class="cd">';
+      ranked.slice(0,5).forEach(function(row,i){
+        var nk=nickMap[row.user_id]||{};
+        var name=row.user_id===TG_UID?(L==="ru"?"Ты":"You"):ratingName(row.user_id,nk.rating_nickname,nk.show_nickname);
+        h+='<div class="it" style="align-items:center"><div style="width:24px;font-weight:700;color:var(--hn)">'+(i+1)+'</div><div style="flex:1;font-size:14px;'+(row.user_id===TG_UID?'font-weight:700':'')+'">'+name+'</div><div style="font-size:13px;font-weight:600;color:'+(row.growth>=0?'var(--lk)':'#ef4444')+'">'+(row.growth>=0?'+':'')+row.growth+'%</div></div>';
+      });
+      h+='</div>';
+      h+='<div style="padding:0 16px;margin-top:8px;display:flex;gap:8px"><button class="btn" style="flex:1" onclick="startDuel()">⚔️ '+(L==="ru"?"Вызвать на дуэль":"Challenge to duel")+'</button></div>';
+      h+='<div style="padding:0 16px;margin-top:8px"><button class="btg" onclick="openDuelsOv()">🗡 '+(L==="ru"?"Мои дуэли":"My duels")+'</button></div>';
+    }
+    var canChange=true,daysLeft2=0;
+    if(bu.rating_nickname_updated_at){
+      var diffDays=(Date.now()-new Date(bu.rating_nickname_updated_at).getTime())/864e5;
+      if(diffDays<7){canChange=false;daysLeft2=Math.ceil(7-diffDays)}
+    }
+    h+='<p class="st">⚙️ '+(L==="ru"?"Настройки рейтинга":"Rating settings")+'</p><div class="cd"><div class="ci">';
+    h+='<label class="fl">'+(L==="ru"?"Никнейм":"Nickname")+'</label>';
+    h+='<input class="egg-in" id="ratingNickIn" maxlength="16" value="'+esc(bu.rating_nickname||'')+'" '+(canChange?'':'disabled')+' placeholder="'+(L==="ru"?"Придумай ник":"Pick a nickname")+'">';
+    if(!canChange)h+='<div style="font-size:12px;color:var(--hn);margin-top:6px">'+(L==="ru"?"Сменить можно через "+daysLeft2+" дн.":"You can change it in "+daysLeft2+" day(s)")+'</div>';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px"><span style="font-size:14px">'+(L==="ru"?"Показывать мой ник другим":"Show my nickname to others")+'</span><input type="checkbox" id="ratingShowNick" '+(bu.show_nickname?'checked':'')+' style="width:20px;height:20px"></div>';
+    h+='<button class="btn" style="margin-top:14px" onclick="saveRatingSettings()">'+(L==="ru"?"Сохранить":"Save")+'</button>';
+    h+='</div></div>';
+    if(bu.legend_streak_months>0){
+      h+='<div class="lt" style="border-color:var(--gd)"><div style="font-size:14px;font-weight:600">👑 Legend ×'+bu.legend_streak_months+' '+(L==="ru"?"мес.":"mo")+'</div><div style="font-size:12px;color:var(--hn);margin-top:4px">'+(L==="ru"?"Рекорд: ":"Best: ")+(bu.legend_streak_best||0)+' '+(L==="ru"?"мес.":"mo")+'</div></div>';
+    }
+    h+='<p class="st">🏛 '+(L==="ru"?"Зал славы":"Hall of fame")+'</p><div id="hallOfFame"><div style="padding:16px;text-align:center;color:var(--hn);font-size:13px">'+(L==="ru"?"Загрузка...":"Loading...")+'</div></div>';
+    el.innerHTML=h;
+    loadHallOfFame();
+    refreshRatingCache();
+  }catch(e){el.innerHTML='<div style="padding:32px;text-align:center;color:var(--hn)">'+esc(e.message||'Error')+'</div>';}
+}
+async function loadHallOfFame(){
+  var el=document.getElementById('hallOfFame');
+  if(!el||!sbCl||!TG_UID)return;
+  try{
+    var res=await sbCl.from('hall_of_fame').select('week_start,rank,growth_pct').eq('user_id',TG_UID).order('week_start',{ascending:false}).limit(8);
+    var rows=res.data||[];
+    if(!rows.length){el.innerHTML='<div class="cd"><div class="ci" style="text-align:center;color:var(--hn);font-size:13px">'+(L==="ru"?"Пока нет записей. Попади в топ-3 своего пода!":"No entries yet. Reach top-3 of your pod!")+'</div></div>';return;}
+    var h='<div class="cd">';
+    rows.forEach(function(row){
+      var medal=row.rank===1?'🥇':row.rank===2?'🥈':'🥉';
+      h+='<div class="it"><div style="font-size:22px;margin-right:6px">'+medal+'</div><div style="flex:1"><div style="font-size:14px;font-weight:600">'+row.week_start+'</div><div style="font-size:12px;color:var(--hn)">'+(L==="ru"?"Место ":"Rank ")+row.rank+'</div></div><div style="font-size:14px;font-weight:700;color:var(--lk)">+'+row.growth_pct+'%</div></div>';
+    });
+    h+='</div>';
+    el.innerHTML=h;
+  }catch(e){}
+}
+async function saveRatingSettings(){
+  if(!sbCl||!TG_UID)return;
+  var nickInp=document.getElementById('ratingNickIn');
+  var showChk=document.getElementById('ratingShowNick');
+  var update={show_nickname:!!(showChk&&showChk.checked)};
+  if(nickInp&&!nickInp.disabled){
+    var val=nickInp.value.trim();
+    if(val&&val!==(_myRating&&_myRating.rating_nickname)){
+      var err=checkNickname(val);
+      if(err){try{TG.showAlert(err)}catch(e){alert(err)};return;}
+      update.rating_nickname=val;
+      update.rating_nickname_updated_at=new Date().toISOString();
+    }
+  }
+  try{
+    await sbCl.from('bot_users').update(update).eq('user_id',TG_UID);
+    hap('medium');
+    try{TG.showAlert(L==="ru"?"Сохранено ✅":"Saved ✅")}catch(e){alert("Saved")}
+    loadRating();
+  }catch(e){try{TG.showAlert(L==="ru"?"Ошибка сохранения":"Save error")}catch(e2){}}
+}
+async function startDuel(){
+  if(!sbCl||!TG_UID)return;
+  try{
+    var code=genCode();
+    await sbCl.from('duels').insert({challenger_id:TG_UID,invite_code:code,status:'pending'});
+    hap('medium');
+    var link='https://t.me/IAM_app_bot?start=duel_'+code;
+    var text=(L==="ru"?"⚔️ Вызываю тебя на дуэль роста в IAM! Кто вырастет больше за неделю?":"⚔️ I challenge you to a growth duel in IAM! Who grows more this week?");
+    if(typeof TG!=='undefined'&&TG.shareUrl){TG.shareUrl(link,text);return;}
+    if(navigator.share){try{await navigator.share({text:text+'\n'+link});return;}catch(e){}}
+    try{await navigator.clipboard.writeText(link);try{TG.showAlert(L==="ru"?"✅ Ссылка скопирована!":"✅ Link copied!")}catch(e){alert("Copied!")}}catch(e){alert(link)}
+  }catch(e){try{TG.showAlert(L==="ru"?"Ошибка создания дуэли":"Duel create error")}catch(e2){}}
+}
+async function openDuelsOv(){
+  document.getElementById('duelsOv').classList.add('open');
+  await loadDuels();
+}
+async function getUserGrowthPct(userId){
+  try{
+    var ws=weekStartISO(),wsPrev=weekStartISO(-1);
+    var cur=await sbCl.from('weekly_scores').select('points').eq('user_id',userId).eq('week_start',ws).maybeSingle();
+    var prev=await sbCl.from('weekly_scores').select('points').eq('user_id',userId).eq('week_start',wsPrev).maybeSingle();
+    var c=(cur.data&&cur.data.points)||0,p=(prev.data&&prev.data.points)||0;
+    return Math.round((c-p)/Math.max(p,20)*100);
+  }catch(e){return 0;}
+}
+async function finalizeDuel(d){
+  try{
+    var myG=await getUserGrowthPct(d.challenger_id);
+    var oppG=await getUserGrowthPct(d.opponent_id);
+    var winner=null;
+    if(myG>oppG)winner=d.challenger_id;else if(oppG>myG)winner=d.opponent_id;
+    await sbCl.from('duels').update({status:'completed',winner_id:winner}).eq('id',d.id);
+  }catch(e){}
+}
+async function loadDuels(){
+  var el=document.getElementById('duelsList');
+  if(!el||!sbCl||!TG_UID)return;
+  el.innerHTML='<div style="padding:24px;text-align:center;color:var(--hn)">'+(L==="ru"?"Загрузка...":"Loading...")+'</div>';
+  try{
+    var res=await sbCl.from('duels').select('*').or('challenger_id.eq.'+TG_UID+',opponent_id.eq.'+TG_UID).order('created_at',{ascending:false});
+    var duels=res.data||[];
+    if(!duels.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--hn);line-height:1.6">'+(L==="ru"?"Пока нет дуэлей.<br>Вызови кого-нибудь!":"No duels yet.<br>Challenge someone!")+'</div>';return;}
+    var today=td();
+    for(var i=0;i<duels.length;i++){
+      var d0=duels[i];
+      if(d0.status==='active'&&d0.end_date&&d0.end_date<today){
+        await finalizeDuel(d0);
+        var refreshed=await sbCl.from('duels').select('*').eq('id',d0.id).single();
+        if(refreshed.data)duels[i]=refreshed.data;
+      }
+    }
+    var h='';
+    for(var j=0;j<duels.length;j++){
+      var du=duels[j];
+      var isChallenger=du.challenger_id===TG_UID;
+      var oppId=isChallenger?du.opponent_id:du.challenger_id;
+      var oppName=oppId?(L==="ru"?"Игрок #":"Player #")+String(oppId).slice(-4):(L==="ru"?"Ждём соперника...":"Waiting for opponent...");
+      var statusLabel={pending:L==="ru"?"⏳ Ожидание":"⏳ Pending",active:L==="ru"?"⚔️ Активна":"⚔️ Active",completed:L==="ru"?"🏁 Завершена":"🏁 Completed"}[du.status]||du.status;
+      h+='<div class="cd"><div class="ci">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600">'+oppName+'</span><span style="font-size:12px;color:var(--hn)">'+statusLabel+'</span></div>';
+      if(du.status==='active'||du.status==='completed'){
+        var myG=await getUserGrowthPct(TG_UID);
+        var oppG=oppId?await getUserGrowthPct(oppId):0;
+        h+='<div style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px"><span>'+(L==="ru"?"Ты: ":"You: ")+myG+'%</span><span>'+oppName+': '+oppG+'%</span></div>';
+        if(du.status==='completed'){
+          if(du.winner_id===TG_UID)h+='<div style="margin-top:8px;font-size:13px;color:var(--lk);font-weight:600">🗡 '+(L==="ru"?"Ты победил!":"You won!")+'</div>';
+          else if(du.winner_id)h+='<div style="margin-top:8px;font-size:13px;color:var(--hn)">'+(L==="ru"?"Победил соперник":"Opponent won")+'</div>';
+          else h+='<div style="margin-top:8px;font-size:13px;color:var(--hn)">'+(L==="ru"?"Ничья":"Draw")+'</div>';
+        }else{
+          h+='<div style="margin-top:6px;font-size:12px;color:var(--hn)">'+(L==="ru"?"До "+du.end_date:"Until "+du.end_date)+'</div>';
+        }
+      }
+      h+='</div></div>';
+    }
+    el.innerHTML=h;
+  }catch(e){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--hn)">'+esc(e.message||'Error')+'</div>';}
+}
+async function refreshRatingCache(){
+  if(!sbCl||!TG_UID)return;
+  try{
+    var hof=await sbCl.from('hall_of_fame').select('rank').eq('user_id',TG_UID).order('week_start',{ascending:false}).limit(1);
+    _rc.podRank=(hof.data&&hof.data[0]&&hof.data[0].rank<=3)?hof.data[0].rank:0;
+    var dw=await sbCl.from('duels').select('id').eq('status','completed').eq('winner_id',TG_UID).order('end_date',{ascending:false}).limit(1);
+    _rc.duelWon=!!(dw.data&&dw.data.length);
+    var buc=await sbCl.from('bot_users').select('legend_streak_months').eq('user_id',TG_UID).maybeSingle();
+    _rc.legendMonths=(buc.data&&buc.data.legend_streak_months)||0;
+  }catch(e){}
+}
+function getShareBadges(){
+  var arr=[];
+  if(_rc.podRank>0)arr.push('🏆 #'+_rc.podRank+' '+(L==="ru"?"в рейтинге роста":"in growth rating"));
+  if(_rc.duelWon)arr.push(L==="ru"?"🗡 Победитель дуэли":"🗡 Duel winner");
+  if(_rc.legendMonths>0)arr.push('👑 Legend ×'+_rc.legendMonths+(L==="ru"?" мес.":" mo"));
+  return arr;
+}
+
 // ====== INIT ======
 var _pendingSharedId=null;
 try{var _sp=TG&&TG.initDataUnsafe&&TG.initDataUnsafe.start_param;if(_sp&&_sp.startsWith("shared_"))_pendingSharedId=_sp.slice(7)}catch(e){}
 if(!_pendingSharedId){try{var _hash=window.location.hash;if(_hash&&_hash.startsWith("#shared_"))_pendingSharedId=_hash.slice(8)}catch(e){}}
-(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}applyTheme(D.theme||'classic');if(!D.onboarded)showOnb();else{build();if(_pendingSharedId){openSharedDetail(_pendingSharedId);_pendingSharedId=null;}}})();
+(async function(){if(sbCl&&TG_UID){try{var r=await sbCl.from("user_data").select("data").eq("user_id",TG_UID).single();if(r.data&&r.data.data){D=r.data.data;if(D.lang)L=D.lang;try{localStorage.setItem("iam3",JSON.stringify(D))}catch(e){}}}catch(e){}}applyTheme(D.theme||'classic');if(!D.onboarded)showOnb();else{build();refreshRatingCache();if(_pendingSharedId){openSharedDetail(_pendingSharedId);_pendingSharedId=null;}}})();
 </script>
 </body>
 </html>
